@@ -1,0 +1,12 @@
+[package]
+name = "anselm_common"
+version.workspace = true
+edition.workspace = true
+description.workspace = true
+readme.workspace = true
+repository.workspace = true
+license-file.workspace = true
+categories.workspace = true
+keywords.workspace = true
+
+[dependencies]

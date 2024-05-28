@@ -1,0 +1,35 @@
+[workspace]
+members = ["anselm_common", "anselm_hub", "anselm_scribe", "anselm_trader"]
+default-members = ["anselm_hub", "anselm_scribe", "anselm_trader"]
+resolver = "2"
+
+[workspace.package]
+# name = "anselm
+version = "0.0.1"
+edition = "2021"
+description = "Stock trading system with a proof for existence of Truth"
+readme = "README.md"
+repository = "https://github.com/mbrav/anselm"
+license-file = "LICENSE"
+categories = ["web-programming::http-server", "asynchronous"]
+keywords = ["rust", "microservice", "hft"]
+
+[workspace.dependencies]
+clap = { version = "^4", features = ["derive"] }
+chrono = "0.4"
+
+# [build]
+# See perf tips: https://nnethercote.github.io/perf-book/profiling.html#symbol-demangling
+# rustflags = ["-C", "symbol-mangling-version=v0"]
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[profile.dev]
+opt-level = 2
+
+# Build optimizations: https://github.com/johnthagen/min-sized-rust
+[profile.release]
+panic = "abort"
+strip = true      # Strip symbols from binary
+opt-level = "z"   # Optimize for size
+lto = true        # Enable link time optimization
+codegen-units = 1 # Maximize size reduction optimizations (takes longer)

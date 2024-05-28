@@ -1,0 +1,17 @@
+[package]
+name = "anselm_scribe"
+version.workspace = true
+edition.workspace = true
+description.workspace = true
+readme.workspace = true
+repository.workspace = true
+license-file.workspace = true
+categories.workspace = true
+keywords.workspace = true
+
+[dependencies]
+chrono.workspace = true
+reqwest = { version = "0.12", features = ["json"] }
+tokio = { version = "1", features = ["full"] }
+serde = "1.0"
+serde_json = "1.0"
