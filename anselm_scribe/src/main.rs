@@ -1,14 +1,20 @@
-use anselm_scribe::models::{get_all_securities, Security};
+use anselm_scribe::config::Config;
+use anselm_scribe::models::get_all_securities;
+use chrono::{Duration, NaiveDate};
+use clap::Parser;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let securities = get_all_securities().await?;
+    let conf = Config::parse();
+    let mut securities = get_all_securities().await?;
 
-    for mut sec in securities {
-        println!("{sec:?}");
-        sec.fetch_candles(1, "2020-01-01".to_string()).await?;
-        for candle in &sec.candles {
-            println!("{:?}", candle);
+    let date = NaiveDate::parse_from_str(conf.date_start.as_str(), "%Y-%m-%d")
+        .expect("Error parsing date");
+
+    for sec in &mut securities {
+        for n in 0..conf.days {
+            let new_date = (date + Duration::days(n)).to_string();
+            sec.fetch_candles(1, new_date).await?;
         }
     }
 
