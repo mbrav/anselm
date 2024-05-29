@@ -14,7 +14,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     for sec in &mut securities {
         for n in 0..conf.days {
             let new_date = (date + Duration::days(n)).to_string();
-            sec.fetch_candles(1, new_date).await?;
+            sec.fetch_candles(1, new_date.clone()).await?;
+            sec.save_candles_to_file(format!("./md/{}-{}.json", &sec.secid, new_date).as_str())
+                .await?;
         }
     }
 

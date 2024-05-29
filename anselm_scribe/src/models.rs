@@ -1,8 +1,11 @@
-use chrono::NaiveDateTime;
+//use chrono::NaiveDateTime;
+use serde::Serialize;
 use std::collections::HashMap;
+use tokio::fs::File;
+use tokio::io::AsyncWriteExt;
 
 /// Candle Record
-#[derive(Debug)]
+#[derive(Debug, Serialize)]
 pub struct CandleRecord {
     pub timeframe: i32,
     pub open: f64,
@@ -11,8 +14,8 @@ pub struct CandleRecord {
     pub low: f64,
     pub value: f64,
     pub volume: f64,
-    pub begin: NaiveDateTime,
-    pub end: NaiveDateTime,
+    //pub begin: NaiveDateTime,
+    //pub end: NaiveDateTime,
 }
 
 /// Data Struct for holding security data
@@ -79,16 +82,15 @@ impl Security {
                 low: x[3].as_f64().unwrap(),
                 value: x[4].as_f64().unwrap(),
                 volume: x[5].as_f64().unwrap(),
-                begin: NaiveDateTime::parse_from_str(
-                    x[6].as_str().expect("Error parsing date"),
-                    "%Y-%m-%d %H:%M:%S",
-                )
-                .unwrap(),
-                end: NaiveDateTime::parse_from_str(
-                    x[7].as_str().expect("Error parsing date"),
-                    "%Y-%m-%d %H:%M:%S",
-                )
-                .unwrap(),
+                //begin: NaiveDateTime::parse_from_str(
+                //    x[6].as_str().expect("Error parsing date"),
+                //    "%Y-%m-%d %H:%M:%S",
+                //)
+                //.unwrap(),
+                //end: NaiveDateTime::parse_from_str(
+                //    x[7].as_str().expect("Error parsing date"),
+                //    "%Y-%m-%d %H:%M:%S",
+                //.unwrap(),
             })
             .collect();
 
@@ -99,6 +101,19 @@ impl Security {
             datestart
         );
         self.candles = records;
+
+        Ok(())
+    }
+
+    /// Save candle records to a JSON file
+    pub async fn save_candles_to_file(
+        &self,
+        file_path: &str,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let mut file = File::create(file_path).await?;
+        let candles_json = serde_json::to_string(&self.candles)?;
+        file.write_all(candles_json.as_bytes()).await?;
+        println!("Candles saved to {}", file_path);
 
         Ok(())
     }
