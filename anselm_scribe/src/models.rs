@@ -7,13 +7,15 @@ use tokio::io::AsyncWriteExt;
 /// Candle Record
 #[derive(Debug, Serialize)]
 pub struct CandleRecord {
-    pub timeframe: i32,
+    pub timeframe: i16,
     pub open: f64,
     pub close: f64,
     pub high: f64,
     pub low: f64,
     pub value: f64,
     pub volume: f64,
+    pub begin: String,
+    pub end: String,
     //pub begin: NaiveDateTime,
     //pub end: NaiveDateTime,
 }
@@ -56,13 +58,15 @@ impl Security {
     /// Fetch candle records
     pub async fn fetch_candles(
         &mut self,
-        interval: i32,
-        datestart: String,
+        interval: i16,
+        date_start: &String,
+        date_end: &String,
     ) -> Result<(), Box<dyn std::error::Error>> {
         let url = format!(
-            "https://iss.moex.com/iss/engines/stock/markets/shares/securities/{}/candles.json?interval={}&from={}",
-            self.secid, interval, datestart
+            "https://iss.moex.com/iss/engines/stock/markets/shares/securities/{}/candles.json?interval={}&from={}&till={}",
+            self.secid, interval, date_start, date_end
         );
+        println!("Geting URL: {url}");
 
         let resp = reqwest::get(&url)
             .await?
@@ -82,6 +86,8 @@ impl Security {
                 low: x[3].as_f64().unwrap(),
                 value: x[4].as_f64().unwrap(),
                 volume: x[5].as_f64().unwrap(),
+                begin: x[6].as_str().unwrap().into(),
+                end: x[7].as_str().unwrap().into(),
                 //begin: NaiveDateTime::parse_from_str(
                 //    x[6].as_str().expect("Error parsing date"),
                 //    "%Y-%m-%d %H:%M:%S",
@@ -95,10 +101,11 @@ impl Security {
             .collect();
 
         println!(
-            "Got {} Candles for {} {}",
+            "Got {} Candles for {} {} until {}",
             records.len(),
             self.secid,
-            datestart
+            date_start,
+            date_end,
         );
         self.candles = records;
 
