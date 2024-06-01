@@ -1,5 +1,5 @@
-use crate::config::Config;
 use crate::models::Security;
+use crate::{config::Config, models::CandleRecord};
 use clickhouse::{error::Result, sql, Client, Row};
 
 /// Clickhouse Clickhouse Database struct
@@ -62,7 +62,7 @@ impl ClickhouseDatabase {
             .query(
                 "
                 CREATE TABLE IF NOT EXISTS ?.candles(
-                    uuid UUID DEFAULT generateUUIDv4(),
+                    secid String DEFAULT '',
                     timeframe Int16 DEFAULT 0,
                     open Float64 DEFAULT 0.0,
                     close Float64 DEFAULT 0.0,
@@ -99,4 +99,17 @@ impl ClickhouseDatabase {
         println!("Inserted security {} into db", security.secid);
         Ok(())
     }
+    ///// Creates new security instance in database
+    //pub async fn create_candle(&self, candle: &CandleRecord) -> Result<()> {
+    //    self.client
+    //        .query("INSERT INTO ?.candles (*) VALUES ('?','?','?','?','?')")
+    //        .bind(sql::Identifier(self.db.as_str()))
+    //        .bind(sql::Identifier(candle.end))
+    //        .bind(sql::Identifier(candle.secid.as_str()))
+    //        .execute()
+    //        .await?;
+    //
+    //    println!("Inserted security {} into db", security.secid);
+    //    Ok(())
+    //}
 }

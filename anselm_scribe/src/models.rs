@@ -15,6 +15,7 @@ pub struct CandleRecord {
     pub volume: f64,
     pub begin: NaiveDateTime,
     pub end: NaiveDateTime,
+    pub secid: String,
 }
 
 /// Data Struct for holding security data
@@ -64,6 +65,7 @@ impl Security {
                     .unwrap(),
                 end: NaiveDateTime::parse_from_str(x[7].as_str().unwrap(), "%Y-%m-%d %H:%M:%S")
                     .unwrap(),
+                secid: self.secid.clone(),
             })
             .collect();
 
