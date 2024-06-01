@@ -16,9 +16,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Execute runners
     if conf.threads > 1 {
         //runners::parallel_runner(&conf).await?;
-        runners::base_runner(&conf).await?;
+        runners::base_runner(&conf, &db).await?;
     } else {
-        runners::base_runner(&conf).await?;
+        runners::base_runner(&conf, &db).await?;
     }
 
     Ok(())

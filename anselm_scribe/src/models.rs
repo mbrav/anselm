@@ -18,7 +18,7 @@ pub struct CandleRecord {
 }
 
 /// Data Struct for holding security data
-#[derive(Debug, Clone, Row)]
+#[derive(Debug, Clone, Serialize, Row)]
 pub struct Security {
     pub secid: String,      // SECID: {"type": "string", "bytes": 36, "max_size": 0}
     pub boardid: String,    // BOARDID: {"type": "string", "bytes": 12, "max_size": 0}

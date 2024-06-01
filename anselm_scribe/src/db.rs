@@ -1,4 +1,5 @@
 use crate::config::Config;
+use crate::models::Security;
 use clickhouse::{error::Result, sql, Client, Row};
 
 /// Clickhouse Clickhouse Database struct
@@ -28,6 +29,12 @@ impl ClickhouseDatabase {
         }
     }
 
+    /// Init database with required tables
+    ///
+    /// # Steps
+    /// - Create defined database if it does not exist
+    /// - Create table for securities
+    /// - Create table for candles
     pub async fn init(&self) -> Result<()> {
         self.client
             .query("CREATE DATABASE IF NOT EXISTS ?")
@@ -38,11 +45,11 @@ impl ClickhouseDatabase {
             .query(
                 "
                 CREATE TABLE IF NOT EXISTS ?.securities(
-                    secid String,
-                    boardid String,
-                    shortname String,
-                    status String,
-                    marketcode String,
+                    secid String DEFAULT '',
+                    boardid String DEFAULT '',
+                    shortname String DEFAULT '',
+                    status String DEFAULT '',
+                    marketcode String DEFAULT '',
                 )
                 ENGINE = MergeTree
                 PRIMARY KEY secid
@@ -54,24 +61,42 @@ impl ClickhouseDatabase {
         self.client
             .query(
                 "
-                CREATE TABLE IF NOT EXISTS ?.candle(
-                    timeframe Int16,
-                    open Float64,
-                    close Float64,
-                    high Float64,
-                    low Float64,
-                    value Float64,
-                    volume Float64,
-                    begin DateTime,
-                    end DateTime,
+                CREATE TABLE IF NOT EXISTS ?.candles(
+                    uuid UUID DEFAULT generateUUIDv4(),
+                    timeframe Int16 DEFAULT 0,
+                    open Float64 DEFAULT 0.0,
+                    close Float64 DEFAULT 0.0,
+                    high Float64 DEFAULT 0.0,
+                    low Float64 DEFAULT 0.0,
+                    value Float64 DEFAULT 0.0,
+                    volume Float64 DEFAULT 0.0,
+                    begin DateTime DEFAULT now(),
+                    end DateTime DEFAULT now(),
                 )
                 ENGINE = MergeTree
-                PRIMARY KEY (begin,end)
+                PRIMARY KEY uuid
                 ",
             )
             .bind(sql::Identifier(self.db.as_str()))
             .execute()
             .await?;
+        Ok(())
+    }
+
+    /// Creates new security instance in database
+    pub async fn create_security(&self, security: &Security) -> Result<()> {
+        self.client
+            .query("INSERT INTO ?.securities (*) VALUES ('?','?','?','?','?')")
+            .bind(sql::Identifier(self.db.as_str()))
+            .bind(sql::Identifier(security.secid.as_str()))
+            .bind(sql::Identifier(security.boardid.as_str()))
+            .bind(sql::Identifier(security.shortname.as_str()))
+            .bind(sql::Identifier(security.status.as_str()))
+            .bind(sql::Identifier(security.marketcode.as_str()))
+            .execute()
+            .await?;
+
+        println!("Inserted security {} into db", security.secid);
         Ok(())
     }
 }

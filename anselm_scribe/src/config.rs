@@ -1,5 +1,4 @@
-//use clap::{arg, ArgAction, Parser};
-use clap::{arg, Parser};
+use clap::{arg, ArgAction, Parser};
 
 /// Anselm Scribe - Stock trading system with a proof for existence of Truth
 #[derive(Parser, Clone, Debug)]
@@ -13,23 +12,48 @@ pub struct Config {
         env = "MD_DATE_START",
         default_value = "2024-01-01"
     )]
-    pub date_start: String,
+    pub md_date_start: String,
 
     /// Specify number of days from Start Date
-    #[arg(short, long, value_name = "INT", env = "MD_DAYS", default_value_t = 30)]
-    pub days: i64,
+    #[arg(
+        short = 'd',
+        long,
+        value_name = "INT",
+        env = "MD_DAYS",
+        default_value_t = 30
+    )]
+    pub md_days: i64,
+
+    /// Specify whether to gather md going backwards in time
+    #[arg(short = 'r', long, env = "MD_REVERSE", action=ArgAction::SetTrue)]
+    pub md_reverse: bool,
+    /// Input text as a space separated argument
+
+    /// Specify specific security to gather market data from
+    #[arg(short = 'c', long, value_name="TEXT", action=ArgAction::Append)]
+    pub md_securities: Vec<String>,
+
+    /// Specify path to which market data file will be written
+    #[arg(
+        short = 'p',
+        long,
+        value_name = "PATH",
+        env = "MD_PATH",
+        default_value = "./"
+    )]
+    pub md_path: String,
 
     /// Specify market data interval to fetch in minutes
     #[arg(
-        short,
+        short = 'i',
         long,
         value_name = "MINUTES",
         env = "MD_INTERVAL",
         default_value_t = 1
     )]
-    pub interval: i16,
+    pub md_interval: i16,
 
-    /// Specify market data interval in minutes
+    /// Specify number of threads to uses, 0 will use all available cores
     #[arg(
         short,
         long,
@@ -39,34 +63,24 @@ pub struct Config {
     )]
     pub threads: usize,
 
-    /// Specify path to which market data file will be written
-    #[arg(
-        short,
-        long,
-        value_name = "PATH",
-        env = "MD_PATH",
-        default_value = "./"
-    )]
-    pub md_path: String,
-
     /// Specify Clickhouse URL
     #[arg(
-        short = 'u',
         long,
         env = "CH_URL",
+        value_name = "URL",
         default_value = "http://localhost:8123"
     )]
     pub ch_url: String,
 
     /// Specify Clickouse user
-    #[arg(short = 'r', long, env = "CH_USER", default_value = "default")]
+    #[arg(long, value_name = "TEXT", env = "CH_USER", default_value = "default")]
     pub ch_user: String,
 
     /// Specify Clickouse password
-    #[arg(short = 'p', long, env = "CH_PASS", default_value = "")]
+    #[arg(long, env = "TEXT", default_value = "")]
     pub ch_password: String,
 
     /// Specify Clickouse database
-    #[arg(short = 'b', long, env = "CH_DB", default_value = "md_moex")]
+    #[arg(long, env = "TEXT", default_value = "md_moex")]
     pub ch_db: String,
 }
