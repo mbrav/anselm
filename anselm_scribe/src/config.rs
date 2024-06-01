@@ -2,7 +2,7 @@
 use clap::{arg, Parser};
 
 /// Anselm Scribe - Stock trading system with a proof for existence of Truth
-#[derive(Parser)]
+#[derive(Parser, Clone)]
 #[command(author, version, about, long_about = None)]
 pub struct Config {
     /// Specify date starting from which market data will be downloaded
