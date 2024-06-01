@@ -1,4 +1,5 @@
-use clap::{arg, ArgAction, Parser};
+//use clap::{arg, ArgAction, Parser};
+use clap::{arg, Parser};
 
 /// Anselm Scribe - Stock trading system with a proof for existence of Truth
 #[derive(Parser)]
@@ -33,6 +34,16 @@ pub struct Config {
         default_value_t = 1
     )]
     pub interval: i16,
+
+    /// Specify market data interval in minutes
+    #[arg(
+        short,
+        long,
+        value_name = "INT",
+        env = "MD_THREADS",
+        default_value_t = 1
+    )]
+    pub threads: i8,
 
     /// Specify path to which market data file will be written
     #[arg(

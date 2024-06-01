@@ -1,11 +1,9 @@
 //use chrono::NaiveDateTime;
 use serde::Serialize;
 use std::collections::HashMap;
-use tokio::fs::File;
-use tokio::io::AsyncWriteExt;
 
 /// Candle Record
-#[derive(Debug, Serialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct CandleRecord {
     pub timeframe: i16,
     pub open: f64,
@@ -21,7 +19,7 @@ pub struct CandleRecord {
 }
 
 /// Data Struct for holding security data
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Security {
     pub secid: String,     // SECID: {"type": "string", "bytes": 36, "max_size": 0}
     pub boardid: String,   // BOARDID: {"type": "string", "bytes": 12, "max_size": 0}
@@ -35,22 +33,23 @@ pub struct Security {
     //// skip remarks
     //pub secname: String, // SECNAME: {"type": "string", "bytes": 90, "max_size": 0}
     pub marketcode: String, // MARKETCODE: {"type": "string", "bytes": 12, "max_size": 0}
-    //pub instrid: String, // INSTRID: {"type": "string", "bytes": 12, "max_size": 0}
-    //pub sectorid: String, // SECTORID: {"type": "string", "bytes": 12, "max_size": 0}
-    //pub minstep: f64,    // MINSTEP: {"type": "double"}
-    //// skip prevwaprice
-    //pub faceunit: String, // FACEUNIT: {"type": "string", "bytes": 12, "max_size": 0}
-    //pub prevdate: String, // PREVDATE: {"type": "date", "bytes": 10, "max_size": 0}
-    //pub issuesize: i64,   // ISSUESIZE: {"type": "int64"}
-    //pub isin: String,     // ISIN: {"type": "string", "bytes": 36, "max_size": 0}
-    //pub latname: String,  // LATNAME: {"type": "string", "bytes": 90, "max_size": 0}
-    //pub regnumber: String, // REGNUMBER: {"type": "string", "bytes": 90, "max_size": 0}
-    //// skip prevlegalcloseprice
-    //pub currencyid: String, // CURRENCYID: {"type": "string", "bytes": 12, "max_size": 0}
-    //pub sectype: String,    // SECTYPE: {"type": "string", "bytes": 3, "max_size": 0}
-    //pub listlevel: i32,     // LISTLEVEL: {"type": "int32"}
-    //pub settledate: String, // SETTLEDATE: {"type": "date", "bytes": 10, "max_size": 0}
-    pub candles: Vec<CandleRecord>, // Candlestick data
+
+                            //pub instrid: String, // INSTRID: {"type": "string", "bytes": 12, "max_size": 0}
+                            //pub sectorid: String, // SECTORID: {"type": "string", "bytes": 12, "max_size": 0}
+                            //pub minstep: f64,    // MINSTEP: {"type": "double"}
+                            //// skip prevwaprice
+                            //pub faceunit: String, // FACEUNIT: {"type": "string", "bytes": 12, "max_size": 0}
+                            //pub prevdate: String, // PREVDATE: {"type": "date", "bytes": 10, "max_size": 0}
+                            //pub issuesize: i64,   // ISSUESIZE: {"type": "int64"}
+                            //pub isin: String,     // ISIN: {"type": "string", "bytes": 36, "max_size": 0}
+                            //pub latname: String,  // LATNAME: {"type": "string", "bytes": 90, "max_size": 0}
+                            //pub regnumber: String, // REGNUMBER: {"type": "string", "bytes": 90, "max_size": 0}
+                            //// skip prevlegalcloseprice
+                            //pub currencyid: String, // CURRENCYID: {"type": "string", "bytes": 12, "max_size": 0}
+                            //pub sectype: String,    // SECTYPE: {"type": "string", "bytes": 3, "max_size": 0}
+                            //pub listlevel: i32,     // LISTLEVEL: {"type": "int32"}
+                            //pub settledate: String, // SETTLEDATE: {"type": "date", "bytes": 10, "max_size": 0}
+                            //pub candles: Vec<CandleRecord>, // Candlestick data
 }
 
 /// Implementation for Security data struct
@@ -61,7 +60,7 @@ impl Security {
         interval: i16,
         date_start: &String,
         date_end: &String,
-    ) -> Result<(), Box<dyn std::error::Error>> {
+    ) -> Result<Vec<CandleRecord>, Box<dyn std::error::Error>> {
         let url = format!(
             "https://iss.moex.com/iss/engines/stock/markets/shares/securities/{}/candles.json?interval={}&from={}&till={}",
             self.secid, interval, date_start, date_end
@@ -107,47 +106,7 @@ impl Security {
             date_start,
             date_end,
         );
-        self.candles = records;
 
-        Ok(())
+        Ok(records)
     }
-
-    /// Save candle records to a JSON file
-    pub async fn save_candles_to_file(
-        &self,
-        file_path: &str,
-    ) -> Result<(), Box<dyn std::error::Error>> {
-        let mut file = File::create(file_path).await?;
-        let candles_json = serde_json::to_string(&self.candles)?;
-        file.write_all(candles_json.as_bytes()).await?;
-        println!("Candles saved to {}", file_path);
-
-        Ok(())
-    }
-}
-
-pub async fn get_all_securities() -> Result<Vec<Security>, Box<dyn std::error::Error>> {
-    let url = "https://iss.moex.com/iss/engines/stock/markets/shares/securities.json";
-    let resp = reqwest::get(url)
-        .await?
-        .json::<HashMap<String, serde_json::Value>>()
-        .await?;
-
-    let resp_iter = resp["securities"]["data"]
-        .as_array()
-        .expect("Error parsing securities data")
-        .iter();
-    let records: Vec<Security> = resp_iter
-        .map(|x| Security {
-            secid: x[0].as_str().unwrap().into(),
-            boardid: x[1].as_str().unwrap().into(),
-            shortname: x[2].as_str().unwrap().into(),
-            status: x[6].as_str().unwrap().into(),
-            marketcode: x[11].as_str().unwrap().into(),
-            candles: Vec::new(),
-        })
-        .collect();
-    println!("Got {} Securities", records.len());
-
-    Ok(records)
 }
