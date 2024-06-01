@@ -8,11 +8,11 @@ use tokio::task;
 
 /// Base runner for running on a single thread
 pub async fn base_runner(conf: &Config) -> Result<(), Box<dyn std::error::Error>> {
-    let mut securities = get_all_securities().await?;
+    let securities = get_all_securities().await?;
 
     let date = NaiveDate::parse_from_str(conf.date_start.as_str(), "%Y-%m-%d")?;
 
-    for sec in &mut securities {
+    for sec in &securities {
         for n in 0..conf.days {
             let date_start = (date + Duration::days(n)).to_string();
             let date_end = (date + Duration::days(n + 1)).to_string();
@@ -34,12 +34,12 @@ pub async fn base_runner(conf: &Config) -> Result<(), Box<dyn std::error::Error>
 /// If number of `threads` equals 0 then runner will use all available cores on system.
 /// Otherwise it will will use the number of threads specified.
 pub async fn parallel_runner(conf: &Config) -> Result<(), Box<dyn std::error::Error>> {
-    let mut securities = get_all_securities().await?;
+    let securities = get_all_securities().await?;
     //
     //let date = NaiveDate::parse_from_str(conf.date_start.as_str(), "%Y-%m-%d")?;
     //
     //let mut tasks = vec![];
-    //for sec in &mut securities {
+    //for sec in securities {
     //    let sec_clone = sec.clone(); // Clone the security to move into the async block
     //    let conf_clone = conf.clone(); // Clone the config to move into the async block
     //    let date_clone = date.clone(); // Clone the date to move into the async block
@@ -52,18 +52,13 @@ pub async fn parallel_runner(conf: &Config) -> Result<(), Box<dyn std::error::Er
     //                "{}/{}-{}.json",
     //                &conf.md_path, &sec_clone.secid, &date_start
     //            );
-    //            if let Err(e) = sec_clone
-    //                .fetch_candles(conf.interval, &date_start, &date_end)
+    //
+    //            let candles = sec_clone
+    //                .fetch_candles(conf_clone.interval, &date_start, &date_end)
     //                .await
-    //            {
-    //                eprintln!("Error fetching candles for {}: {}", sec_clone.secid, e);
-    //            }
-    //            if let Err(e) = sec_clone.save_candles_to_file(&file_path).await {
-    //                eprintln!(
-    //                    "Error saving candles to file for {}: {}",
-    //                    sec_clone.secid, e
-    //                );
-    //            }
+    //                .expect("Error");
+    //
+    //            save_candles_to_file(candles, &file_path).await;
     //        }
     //    });
     //
@@ -74,7 +69,7 @@ pub async fn parallel_runner(conf: &Config) -> Result<(), Box<dyn std::error::Er
     //for task in tasks {
     //    task.await?;
     //}
-
+    //
     Ok(())
 }
 

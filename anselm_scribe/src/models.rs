@@ -33,30 +33,13 @@ pub struct Security {
     //// skip remarks
     //pub secname: String, // SECNAME: {"type": "string", "bytes": 90, "max_size": 0}
     pub marketcode: String, // MARKETCODE: {"type": "string", "bytes": 12, "max_size": 0}
-
-                            //pub instrid: String, // INSTRID: {"type": "string", "bytes": 12, "max_size": 0}
-                            //pub sectorid: String, // SECTORID: {"type": "string", "bytes": 12, "max_size": 0}
-                            //pub minstep: f64,    // MINSTEP: {"type": "double"}
-                            //// skip prevwaprice
-                            //pub faceunit: String, // FACEUNIT: {"type": "string", "bytes": 12, "max_size": 0}
-                            //pub prevdate: String, // PREVDATE: {"type": "date", "bytes": 10, "max_size": 0}
-                            //pub issuesize: i64,   // ISSUESIZE: {"type": "int64"}
-                            //pub isin: String,     // ISIN: {"type": "string", "bytes": 36, "max_size": 0}
-                            //pub latname: String,  // LATNAME: {"type": "string", "bytes": 90, "max_size": 0}
-                            //pub regnumber: String, // REGNUMBER: {"type": "string", "bytes": 90, "max_size": 0}
-                            //// skip prevlegalcloseprice
-                            //pub currencyid: String, // CURRENCYID: {"type": "string", "bytes": 12, "max_size": 0}
-                            //pub sectype: String,    // SECTYPE: {"type": "string", "bytes": 3, "max_size": 0}
-                            //pub listlevel: i32,     // LISTLEVEL: {"type": "int32"}
-                            //pub settledate: String, // SETTLEDATE: {"type": "date", "bytes": 10, "max_size": 0}
-                            //pub candles: Vec<CandleRecord>, // Candlestick data
 }
 
 /// Implementation for Security data struct
 impl Security {
     /// Fetch candle records
     pub async fn fetch_candles(
-        &mut self,
+        &self,
         interval: i16,
         date_start: &String,
         date_end: &String,
