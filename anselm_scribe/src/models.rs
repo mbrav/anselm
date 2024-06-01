@@ -1,9 +1,10 @@
-//use chrono::NaiveDateTime;
+use chrono::NaiveDateTime;
+use clickhouse::Row;
 use serde::Serialize;
 use std::collections::HashMap;
 
 /// Candle Record
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Row)]
 pub struct CandleRecord {
     pub timeframe: i16,
     pub open: f64,
@@ -12,26 +13,17 @@ pub struct CandleRecord {
     pub low: f64,
     pub value: f64,
     pub volume: f64,
-    pub begin: String,
-    pub end: String,
-    //pub begin: NaiveDateTime,
-    //pub end: NaiveDateTime,
+    pub begin: NaiveDateTime,
+    pub end: NaiveDateTime,
 }
 
 /// Data Struct for holding security data
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Row)]
 pub struct Security {
-    pub secid: String,     // SECID: {"type": "string", "bytes": 36, "max_size": 0}
-    pub boardid: String,   // BOARDID: {"type": "string", "bytes": 12, "max_size": 0}
-    pub shortname: String, // SHORTNAME: {"type": "string", "bytes": 30, "max_size": 0}
-    // skip prevprice
-    //pub lotsize: i32, // LOTSIZE: {"type": "int32"}
-    //pub facevalue: f64,    // FACEVALUE: {"type": "double"}
-    pub status: String, // STATUS: {"type": "string", "bytes": 3, "max_size": 0}
-    //pub boardname: String, // BOARDNAME: {"type": "string", "bytes": 381, "max_size": 0}
-    //// skip decimals
-    //// skip remarks
-    //pub secname: String, // SECNAME: {"type": "string", "bytes": 90, "max_size": 0}
+    pub secid: String,      // SECID: {"type": "string", "bytes": 36, "max_size": 0}
+    pub boardid: String,    // BOARDID: {"type": "string", "bytes": 12, "max_size": 0}
+    pub shortname: String,  // SHORTNAME: {"type": "string", "bytes": 30, "max_size": 0}
+    pub status: String,     // STATUS: {"type": "string", "bytes": 3, "max_size": 0}
     pub marketcode: String, // MARKETCODE: {"type": "string", "bytes": 12, "max_size": 0}
 }
 
@@ -68,17 +60,10 @@ impl Security {
                 low: x[3].as_f64().unwrap(),
                 value: x[4].as_f64().unwrap(),
                 volume: x[5].as_f64().unwrap(),
-                begin: x[6].as_str().unwrap().into(),
-                end: x[7].as_str().unwrap().into(),
-                //begin: NaiveDateTime::parse_from_str(
-                //    x[6].as_str().expect("Error parsing date"),
-                //    "%Y-%m-%d %H:%M:%S",
-                //)
-                //.unwrap(),
-                //end: NaiveDateTime::parse_from_str(
-                //    x[7].as_str().expect("Error parsing date"),
-                //    "%Y-%m-%d %H:%M:%S",
-                //.unwrap(),
+                begin: NaiveDateTime::parse_from_str(x[6].as_str().unwrap(), "%Y-%m-%d %H:%M:%S")
+                    .unwrap(),
+                end: NaiveDateTime::parse_from_str(x[7].as_str().unwrap(), "%Y-%m-%d %H:%M:%S")
+                    .unwrap(),
             })
             .collect();
 
