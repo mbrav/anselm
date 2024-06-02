@@ -77,7 +77,7 @@ impl ClickhouseDatabase {
     /// - `secid`: The unique identifier for the security. It is stored as a
     ///   `LowCardinality(String)` for efficient storage and querying of categorical data.
     /// - `timeframe`: The time frame for the candle (e.g., 1 minute, 5 minutes, etc.). It is
-    ///   stored as an `Int16` and uses the `CODEC(Delta, Default)` codec for efficient storage.
+    ///   stored as an `Int16` and uses the `Codec(Delta, Default)` codec for efficient storage.
     /// - `open`: The opening price of the security for the candle's time frame.
     /// - `close`: The closing price of the security for the candle's time frame.
     /// - `high`: The highest price of the security for the candle's time frame.
@@ -88,7 +88,7 @@ impl ClickhouseDatabase {
     /// - `end`: The end time of the candle.
     ///
     /// ## Storing Only Deltas
-    /// For columns where values typically change incrementally, the `CODEC(Delta, Default)`
+    /// For columns where values typically change incrementally, the `Codec(Delta, Default)`
     /// keyword is used. This codec helps in reducing the storage space required by storing only
     /// the differences (deltas) between consecutive values, rather than the full values. This
     /// is particularly useful for columns like `open`, `close`, `high`, `low`, `value`, and
@@ -97,11 +97,11 @@ impl ClickhouseDatabase {
     /// For example:
     ///
     /// ```sql
-    /// open       Nullable(Float64) CODEC(Delta, Default),
-    /// close      Nullable(Float64) CODEC(Delta, Default),
+    /// open       Nullable(Float64) Codec(Delta, Default),
+    /// close      Nullable(Float64) Codec(Delta, Default),
     /// ```
     ///
-    /// By using the `CODEC(Delta, Default)`, the storage engine can store the difference
+    /// By using the `Codec(Delta, Default)`, the storage engine can store the difference
     /// between consecutive values, which can lead to significant space savings.
     ///
     /// ## ClickHouse Engine and Order
@@ -110,27 +110,30 @@ impl ClickhouseDatabase {
     /// allowing efficient range queries based on security ID and time.
     ///
     /// ## Resources
+    ///  - [Optimizing ClickHouse with Schemas and Codecs](https://clickhouse.com/blog/optimize-clickhouse-codecs-compression-schema)
     ///  - [Using ClickHouse for financial market data - Christoph Wurm (ClickHouse)](https://youtu.be/Ojv6LPXKy2U?si=Je8BkFA8nOTczLZn)
+    ///  - [New Tips and Tricks that Every ClickHouse Developer Should Know | ClickHouse Webinar](https://youtu.be/BLt246SijGU?si=4yBgOVfvfjs-34Qc)
     pub async fn init_candles(&self) -> Result<()> {
         self.client
             .query(
                 "
                 CREATE TABLE IF NOT EXISTS ?.candles(
-                    secid      LowCardinality(String) DEFAULT '',
-                    boardid    LowCardinality(String) DEFAULT '',
-                    shortname  LowCardinality(String) DEFAULT '',
-                    timeframe  Int16 DEFAULT 1 CODEC(Delta, Default),
-                    open       Nullable(Float64) CODEC(Delta, Default),
-                    close      Nullable(Float64) CODEC(Delta, Default),
-                    high       Nullable(Float64) CODEC(Delta, Default),
-                    low        Nullable(Float64) CODEC(Delta, Default),
-                    value      Nullable(Float64) CODEC(Delta, Default),
-                    volume     Nullable(Float64) CODEC(Delta, Default),
-                    begin      DateTime CODEC(Delta, Default),
-                    end        DateTime CODEC(Delta, Default),
+                    secid      LowCardinality(String) Codec(ZSTD(1)),
+                    boardid    LowCardinality(String) Codec(ZSTD(1)),
+                    shortname  LowCardinality(String) Codec(ZSTD(1)),
+                    timeframe  Int16 Codec(Delta, Default),
+                    open       Nullable(Float64) Codec(Delta, Default),
+                    close      Nullable(Float64) Codec(Delta, Default),
+                    high       Nullable(Float64) Codec(Delta, Default),
+                    low        Nullable(Float64) Codec(Delta, Default),
+                    value      Nullable(Float64) Codec(Delta, Default),
+                    volume     Nullable(Float64) Codec(Delta, Default),
+                    begin      DateTime Codec(DoubleDelta, ZSTD(1)),
+                    end        DateTime Codec(DoubleDelta, ZSTD(1)),
                 )
                 ENGINE = MergeTree
-                ORDER BY (secid, begin)
+                PARTITION BY toYYYYMM(begin)
+                ORDER BY (secid, begin, end)
                 ",
             )
             .bind(sql::Identifier(self.db.as_str()))
