@@ -1,14 +1,11 @@
 use crate::models::Security;
 use crate::{config::Config, models::CandleRecord};
-use clickhouse::{error::Result, sql, Client, Row};
+use clickhouse::{error::Result, sql, Client};
 
 /// Clickhouse Clickhouse Database struct
 pub struct ClickhouseDatabase {
     client: Client,
-    url: String,
     db: String,
-    user: String,
-    password: String,
 }
 
 /// Implementation for ClickhouseDatabase Struct
@@ -22,10 +19,7 @@ impl ClickhouseDatabase {
 
         Self {
             client,
-            url: conf.ch_url.clone(),
             db: conf.ch_db.clone(),
-            user: conf.ch_user.clone(),
-            password: conf.ch_password.clone(),
         }
     }
 
@@ -143,33 +137,44 @@ impl ClickhouseDatabase {
         Ok(())
     }
 
-    /// Creates new security instance in database
-    pub async fn create_security(&self, security: &Security) -> Result<()> {
+    /// Insert new security record in database
+    pub async fn insert_security(&self, security: &Security) -> Result<()> {
         self.client
-            .query("INSERT INTO ?.securities (*) VALUES ('?','?','?','?','?')")
+            .query("INSERT INTO ?.securities (*) VALUES (?,?,?,?,?)")
             .bind(sql::Identifier(self.db.as_str()))
-            .bind(sql::Identifier(security.secid.as_str()))
-            .bind(sql::Identifier(security.boardid.as_str()))
-            .bind(sql::Identifier(security.shortname.as_str()))
-            .bind(sql::Identifier(security.status.as_str()))
-            .bind(sql::Identifier(security.marketcode.as_str()))
+            .bind(security.secid.as_str())
+            .bind(security.boardid.as_str())
+            .bind(security.shortname.as_str())
+            .bind(security.status.as_str())
+            .bind(security.marketcode.as_str())
             .execute()
             .await?;
 
         println!("Inserted security {} into db", security.secid);
         Ok(())
     }
-    ///// Creates new security instance in database
-    //pub async fn create_candle(&self, candle: &CandleRecord) -> Result<()> {
-    //    self.client
-    //        .query("INSERT INTO ?.candles (*) VALUES ('?','?','?','?','?')")
-    //        .bind(sql::Identifier(self.db.as_str()))
-    //        .bind(sql::Identifier(candle.end))
-    //        .bind(sql::Identifier(candle.secid.as_str()))
-    //        .execute()
-    //        .await?;
-    //
-    //    println!("Inserted security {} into db", security.secid);
-    //    Ok(())
-    //}
+    /// Insert new candle record in database
+    pub async fn insert_candle(&self, candle: &CandleRecord) -> Result<()> {
+        self.client
+            .query("INSERT INTO ?.candles (*) VALUES (?,?,?,?,?,?,?,?,toDateTime('?'),'toDateTime('?'))")
+            .bind(sql::Identifier(self.db.as_str()))
+            .bind(candle.secid.as_str())
+            .bind(candle.timeframe)
+            .bind(candle.open)
+            .bind(candle.close)
+            .bind(candle.high)
+            .bind(candle.low)
+            .bind(candle.value)
+            .bind(candle.volume)
+            .bind(candle.begin.to_string())
+            .bind(candle.end.to_string())
+            .execute()
+            .await?;
+
+        println!(
+            "Inserted candle from {} to {} for security {} into db",
+            candle.begin, candle.end, candle.secid
+        );
+        Ok(())
+    }
 }

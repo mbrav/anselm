@@ -27,11 +27,14 @@ pub struct Config {
     /// Specify whether to gather md going backwards in time
     #[arg(short = 'r', long, env = "MD_REVERSE", action=ArgAction::SetTrue)]
     pub md_reverse: bool,
-    /// Input text as a space separated argument
 
     /// Specify specific security to gather market data from
     #[arg(short = 'c', long, value_name="TEXT", action=ArgAction::Append)]
     pub md_securities: Vec<String>,
+
+    /// Specify whether to save market data to disk as json files instead of db
+    #[arg(long, env = "MD_DISK", action=ArgAction::SetTrue)]
+    pub md_disk: bool,
 
     /// Specify path to which market data file will be written
     #[arg(
@@ -53,16 +56,6 @@ pub struct Config {
     )]
     pub md_interval: i16,
 
-    /// Specify number of threads to uses, 0 will use all available cores
-    #[arg(
-        short,
-        long,
-        value_name = "INT",
-        env = "MD_THREADS",
-        default_value_t = 1
-    )]
-    pub threads: usize,
-
     /// Specify Clickhouse URL
     #[arg(
         long,
@@ -83,4 +76,14 @@ pub struct Config {
     /// Specify Clickouse database
     #[arg(long, env = "TEXT", default_value = "md_moex")]
     pub ch_db: String,
+
+    /// Specify number of threads to uses, 0 will use all available cores
+    #[arg(
+        short,
+        long,
+        value_name = "INT",
+        env = "MD_THREADS",
+        default_value_t = 1
+    )]
+    pub threads: usize,
 }

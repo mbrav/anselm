@@ -3,16 +3,16 @@ use crate::db::ClickhouseDatabase;
 use crate::models::{CandleRecord, Security};
 use chrono::{Duration, NaiveDate};
 use std::collections::HashMap;
-use std::sync::Arc;
+//use std::sync::Arc;
 use tokio::fs::File;
 use tokio::io::AsyncWriteExt;
-use tokio::task;
+//use tokio::task;
 //use tokio::task::JoinHandle;
 
 /// Base runner for running on a single thread
 pub async fn base_runner(
     conf: &Config,
-    db: &ClickhouseDatabase,
+    db: &Option<ClickhouseDatabase>,
 ) -> Result<(), Box<dyn std::error::Error>> {
     // Set date
     let date = NaiveDate::parse_from_str(conf.md_date_start.as_str(), "%Y-%m-%d")?;
@@ -35,82 +35,100 @@ pub async fn base_runner(
             } else {
                 (date + Duration::days(n + 1)).to_string()
             };
-            //let date_start = (date + Duration::days(n)).to_string();
-            //let date_end = (date + Duration::days(n + increment)).to_string();
             let file_path = format!("{}/{}-{}.json", &conf.md_path, &sec.secid, &date_start);
             let candles = sec
                 .fetch_candles(conf.md_interval, &date_start, &date_end)
                 .await?;
-            save_candles_to_file(candles, &file_path).await?;
+
+            // Save market data as JSON to disk if configured
+            if conf.md_disk {
+                save_candles_to_file(&file_path, candles).await?;
+            } else {
+                todo!("Candle to db implementing")
+            }
         }
     }
 
     Ok(())
 }
 
-/// Parallel runner for running
-///
-/// # Thread Options
-///
-/// If number of `threads` equals 0 then runner will use all available cores on system.
-/// Otherwise it will will use the number of threads specified.
-pub async fn parallel_runner(
-    conf: &Config,
-    db: &ClickhouseDatabase,
-) -> Result<(), Box<dyn std::error::Error>> {
-    // Set date
-    let date = NaiveDate::parse_from_str(conf.md_date_start.as_str(), "%Y-%m-%d")?;
-
-    // Set whether to go backwards in time to gather data
-    let increment = if conf.md_reverse { -1 } else { 1 };
-
-    let securities = get_all_securities(db).await?;
-
-    // Clone the config and wrap it in an Arc to share among tasks
-    let conf_arc = Arc::new(conf.clone());
-    let mut tasks = vec![];
-
-    for sec in securities {
-        let sec_clone = sec.clone(); // Clone the security to move into the async block
-        let conf_clone = Arc::clone(&conf_arc); // Clone the Arc to move into the async block
-        let date_clone = date; // Copy the date to move into the async block
-
-        let task = task::spawn(async move {
-            for n in 0..conf_clone.md_days {
-                let date_start = (date_clone + Duration::days(n)).to_string();
-                let date_end = (date_clone + Duration::days(n + increment)).to_string();
-                let file_path = format!(
-                    "{}/{}-{}.json",
-                    &conf_clone.md_path, &sec_clone.secid, &date_start
-                );
-
-                println!(
-                    "Running Parallel runner for {} {}-{}",
-                    sec_clone.secid, date_start, date_end
-                );
-
-                let candles = sec_clone
-                    .fetch_candles(conf_clone.md_interval, &date_start, &date_end)
-                    .await
-                    .expect("Error fetching candles");
-
-                save_candles_to_file(candles, &file_path)
-                    .await
-                    .expect("Error saving candles to file");
-            }
-        });
-
-        tasks.push(task);
-    }
-
-    // Await all tasks to ensure they complete before the program exits
-    for task in tasks {
-        task.await?;
-    }
-
-    Ok(())
-}
-
+///// Parallel runner for running
+/////
+///// # Thread Options
+/////
+///// If number of `threads` equals 0 then runner will use all available cores on system.
+///// Otherwise it will will use the number of threads specified.
+//pub async fn parallel_runner(
+//    conf: &Config,
+//    db: &ClickhouseDatabase,
+//
+//) -> Result<(), Box<dyn std::error::Error>> {
+//    // Set date
+//    let date = NaiveDate::parse_from_str(conf.md_date_start.as_str(), "%Y-%m-%d")?;
+//
+//    // Clone the config and wrap it in an Arc to share among tasks
+//    let conf_arc = Arc::new(conf.clone());
+//
+//    let securities = get_all_securities(db, conf_arc.md_disk.clone()).await?;
+//    let mut tasks = vec![];
+//
+//    for sec in securities {
+//        let sec_clone = sec.clone(); // Clone the security to move into the async block
+//        let conf_clone = Arc::clone(&conf_arc); // Clone the Arc to move into the async block
+//
+//        let task = task::spawn(async move {
+//            for n in 0..conf_clone.md_days {
+//                // Caclulate date start based on reverse parameter
+//                let date_start = if conf_clone.md_reverse {
+//                    // If reverse, subtract current day making date start less in reverse direction
+//                    (date - Duration::days(n + 1)).to_string()
+//                } else {
+//                    // Otherwise, make date start less than date end
+//                    (date + Duration::days(n)).to_string()
+//                };
+//                // Caclulate date end based on reverse parameter
+//                let date_end = if conf_clone.md_reverse {
+//                    (date - Duration::days(n)).to_string()
+//                } else {
+//                    (date + Duration::days(n + 1)).to_string()
+//                };
+//                let file_path = format!(
+//                    "{}/{}-{}.json",
+//                    &conf_clone.md_path, &sec_clone.secid, &date_start
+//                );
+//
+//                println!(
+//                    "Running Parallel runner for {} {}-{}",
+//                    sec_clone.secid, date_start, date_end
+//                );
+//
+//                let candles = sec_clone
+//                    .fetch_candles(conf_clone.md_interval, &date_start, &date_end)
+//                    .await
+//                    .expect("Error fetching candles");
+//
+//                // Save market data as JSON to disk if configured
+//                if conf.md_disk {
+//                    save_candles_to_file(&file_path, candles)
+//                        .await
+//                        .expect("Error saving candles to file");
+//                } else {
+//                    todo!("Candle to db implementing")
+//                }
+//            }
+//        });
+//
+//        tasks.push(task);
+//    }
+//
+//    // Await all tasks to ensure they complete before the program exits
+//    for task in tasks {
+//        task.await?;
+//    }
+//
+//    Ok(())
+//}
+//
 ///// Parallel runner for running
 /////
 ///// ### Thread Options
@@ -175,7 +193,7 @@ pub async fn parallel_runner(
 //}
 //
 async fn get_all_securities(
-    db: &ClickhouseDatabase,
+    db: &Option<ClickhouseDatabase>,
 ) -> Result<Vec<Security>, Box<dyn std::error::Error>> {
     let url = "https://iss.moex.com/iss/engines/stock/markets/shares/securities.json";
     let resp = reqwest::get(url)
@@ -198,8 +216,11 @@ async fn get_all_securities(
         .collect();
     println!("Got {} Securities", records.len());
 
-    for sec in &records {
-        db.create_security(&sec).await?;
+    // Insert securities into db if Option is not empty
+    if let Some(db) = db {
+        for sec in &records {
+            db.insert_security(sec).await?;
+        }
     }
 
     Ok(records)
@@ -207,8 +228,8 @@ async fn get_all_securities(
 
 /// Save candle records to a JSON file
 async fn save_candles_to_file(
-    candles: Vec<CandleRecord>,
     file_path: &str,
+    candles: Vec<CandleRecord>,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let mut file = File::create(file_path).await?;
     let candles_json = serde_json::to_string(&candles)?;

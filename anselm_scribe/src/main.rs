@@ -9,9 +9,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Load config from CLI arguments and env variables
     let conf = Config::parse();
 
-    // Initialize database connection and schema if necessary
-    let db = db::ClickhouseDatabase::new(&conf);
-    db.init().await?;
+    // Initialize database connection and schema market data to disk is false
+    let db = if conf.md_disk {
+        None
+    } else {
+        Some(db::ClickhouseDatabase::new(&conf))
+    };
 
     // Execute runners
     if conf.threads > 1 {
