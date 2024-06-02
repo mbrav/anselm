@@ -16,6 +16,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         Some(db::ClickhouseDatabase::new(&conf))
     };
 
+    // Init db if defined
+    if let Some(ref db) = db {
+        db.init().await?;
+    }
+
     // Execute runners
     if conf.threads > 1 {
         //runners::parallel_runner(&conf).await?;

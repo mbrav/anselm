@@ -156,7 +156,7 @@ impl ClickhouseDatabase {
     /// Insert new candle record in database
     pub async fn insert_candle(&self, candle: &CandleRecord) -> Result<()> {
         self.client
-            .query("INSERT INTO ?.candles (*) VALUES (?,?,?,?,?,?,?,?,toDateTime('?'),'toDateTime('?'))")
+            .query("INSERT INTO ?.candles (*) VALUES (?,?,?,?,?,?,?,?,toDateTime(?),toDateTime(?))")
             .bind(sql::Identifier(self.db.as_str()))
             .bind(candle.secid.as_str())
             .bind(candle.timeframe)

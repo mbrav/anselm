@@ -40,11 +40,14 @@ pub async fn base_runner(
                 .fetch_candles(conf.md_interval, &date_start, &date_end)
                 .await?;
 
-            // Save market data as JSON to disk if configured
-            if conf.md_disk {
-                save_candles_to_file(&file_path, candles).await?;
+            // Save canles to db
+            if let Some(db) = db {
+                for candle in &candles {
+                    db.insert_candle(candle).await?;
+                }
             } else {
-                todo!("Candle to db implementing")
+                // Otherwise Save market data as JSON to disk
+                save_candles_to_file(&file_path, candles).await?;
             }
         }
     }
