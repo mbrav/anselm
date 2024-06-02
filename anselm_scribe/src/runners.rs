@@ -19,9 +19,10 @@ pub async fn base_runner(
 
     let securities = get_all_securities(db).await?;
 
-    for sec in securities {
-        for n in 0..conf.md_days {
-            // Caclulate date start based on reverse parameter
+    'outer: for sec in securities {
+        let mut empty_day = 0;
+        'inner: for n in 0..conf.md_days {
+            // Calculate date start based on reverse parameter
             let date_start = if conf.md_reverse {
                 // If reverse, subtract current day making date start less in reverse direction
                 (date - Duration::days(n + 1)).to_string()
@@ -29,7 +30,7 @@ pub async fn base_runner(
                 // Otherwise, make date start less than date end
                 (date + Duration::days(n)).to_string()
             };
-            // Caclulate date end based on reverse parameter
+            // Calculate date end based on reverse parameter
             let date_end = if conf.md_reverse {
                 (date - Duration::days(n)).to_string()
             } else {
@@ -41,12 +42,24 @@ pub async fn base_runner(
                 .fetch_candles(conf.md_interval, &date_start, &date_end)
                 .await?;
 
+            // Check if candles where empty for curent day
+            if candles.is_empty() {
+                empty_day += 1;
+                // If empty day count surpassed threshold then continue onto next security
+                if empty_day > conf.md_day_threshold {
+                    continue 'outer;
+                }
+                // Otherwise don't save candles and continue onto next day
+                continue 'inner;
+            }
+
             // Save market data
             if let Some(db) = db {
-                // Save canles to db if defined
+                // Save candles array to db
                 for candle in &candles {
                     db.insert_candle(candle).await?;
                 }
+                //db.insert_candle_batch(&candles).await?;
                 println!(
                     "Inserted {} candles for security {} in db",
                     candles.len(),

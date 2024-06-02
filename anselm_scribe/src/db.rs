@@ -177,4 +177,15 @@ impl ClickhouseDatabase {
 
         Ok(())
     }
+    /// Insert new candles in database as a batch
+    pub async fn insert_candle_batch(&self, candles: &Vec<CandleRecord>) -> Result<()> {
+        let mut insert = self
+            .client
+            .insert(format!("{}.candles", self.db).as_str())?;
+        for candle in candles {
+            insert.write(candle).await?;
+        }
+        insert.end().await?;
+        Ok(())
+    }
 }
