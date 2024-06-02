@@ -4,7 +4,7 @@ default-members = ["anselm_hub", "anselm_scribe", "anselm_trader"]
 resolver = "2"
 
 [workspace.package]
-version = "0.0.1"
+version = "0.0.2"
 edition = "2021"
 description = "Stock trading system with a proof for existence of Truth"
 readme = "README.md"

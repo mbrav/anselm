@@ -6,6 +6,11 @@ use std::collections::HashMap;
 /// Candle Record
 #[derive(Debug, Clone, Serialize, Row)]
 pub struct CandleRecord {
+    // 2 unique identiesrs necessary
+    pub secid: String,
+    pub boardid: String,
+    pub shortname: String,
+    // Main data
     pub timeframe: i16,
     pub open: f64,
     pub close: f64,
@@ -15,7 +20,6 @@ pub struct CandleRecord {
     pub volume: f64,
     pub begin: NaiveDateTime,
     pub end: NaiveDateTime,
-    pub secid: String,
 }
 
 /// Data Struct for holding security data
@@ -54,6 +58,9 @@ impl Security {
             .iter();
         let records: Vec<CandleRecord> = resp_iter
             .map(|x| CandleRecord {
+                secid: self.secid.clone(),
+                boardid: self.boardid.clone(),
+                shortname: self.shortname.clone(),
                 timeframe: interval,
                 open: x[0].as_f64().unwrap(),
                 close: x[1].as_f64().unwrap(),
@@ -65,7 +72,6 @@ impl Security {
                     .unwrap(),
                 end: NaiveDateTime::parse_from_str(x[7].as_str().unwrap(), "%Y-%m-%d %H:%M:%S")
                     .unwrap(),
-                secid: self.secid.clone(),
             })
             .collect();
 

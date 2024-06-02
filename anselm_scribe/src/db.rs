@@ -117,6 +117,8 @@ impl ClickhouseDatabase {
                 "
                 CREATE TABLE IF NOT EXISTS ?.candles(
                     secid      LowCardinality(String) DEFAULT '',
+                    boardid    LowCardinality(String) DEFAULT '',
+                    shortname  LowCardinality(String) DEFAULT '',
                     timeframe  Int16 DEFAULT 1 CODEC(Delta, Default),
                     open       Nullable(Float64) CODEC(Delta, Default),
                     close      Nullable(Float64) CODEC(Delta, Default),
@@ -149,16 +151,18 @@ impl ClickhouseDatabase {
             .bind(security.marketcode.as_str())
             .execute()
             .await?;
-
-        println!("Inserted security {} into db", security.secid);
         Ok(())
     }
     /// Insert new candle record in database
     pub async fn insert_candle(&self, candle: &CandleRecord) -> Result<()> {
         self.client
-            .query("INSERT INTO ?.candles (*) VALUES (?,?,?,?,?,?,?,?,toDateTime(?),toDateTime(?))")
+            .query(
+                "INSERT INTO ?.candles (*) VALUES (?,?,?,?,?,?,?,?,?,?,toDateTime(?),toDateTime(?))",
+            )
             .bind(sql::Identifier(self.db.as_str()))
             .bind(candle.secid.as_str())
+            .bind(candle.boardid.as_str())
+            .bind(candle.shortname.as_str())
             .bind(candle.timeframe)
             .bind(candle.open)
             .bind(candle.close)
@@ -171,10 +175,6 @@ impl ClickhouseDatabase {
             .execute()
             .await?;
 
-        println!(
-            "Inserted candle from {} to {} for security {} into db",
-            candle.begin, candle.end, candle.secid
-        );
         Ok(())
     }
 }

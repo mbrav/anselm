@@ -35,19 +35,33 @@ pub async fn base_runner(
             } else {
                 (date + Duration::days(n + 1)).to_string()
             };
-            let file_path = format!("{}/{}-{}.json", &conf.md_path, &sec.secid, &date_start);
+
+            // Fetch candles
             let candles = sec
                 .fetch_candles(conf.md_interval, &date_start, &date_end)
                 .await?;
 
-            // Save canles to db
+            // Save market data
             if let Some(db) = db {
+                // Save canles to db if defined
                 for candle in &candles {
                     db.insert_candle(candle).await?;
                 }
+                println!(
+                    "Inserted {} candles for security {} in db",
+                    candles.len(),
+                    sec.secid
+                );
             } else {
                 // Otherwise Save market data as JSON to disk
-                save_candles_to_file(&file_path, candles).await?;
+                let file_path = format!("{}/{}-{}.json", &conf.md_path, &sec.secid, &date_start);
+                save_candles_to_file(&file_path, &candles).await?;
+                println!(
+                    "saved {} candles for security {} to {}",
+                    candles.len(),
+                    sec.secid,
+                    file_path
+                );
             }
         }
     }
@@ -232,7 +246,7 @@ async fn get_all_securities(
 /// Save candle records to a JSON file
 async fn save_candles_to_file(
     file_path: &str,
-    candles: Vec<CandleRecord>,
+    candles: &Vec<CandleRecord>,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let mut file = File::create(file_path).await?;
     let candles_json = serde_json::to_string(&candles)?;
