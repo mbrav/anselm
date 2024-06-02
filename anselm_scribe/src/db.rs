@@ -41,15 +41,24 @@ impl ClickhouseDatabase {
             .bind(sql::Identifier(self.db.as_str()))
             .execute()
             .await?;
+
+        self.init_security().await?;
+        self.init_candles().await?;
+
+        Ok(())
+    }
+
+    /// Init security table
+    pub async fn init_security(&self) -> Result<()> {
         self.client
             .query(
                 "
                 CREATE TABLE IF NOT EXISTS ?.securities(
-                    secid String DEFAULT '',
-                    boardid String DEFAULT '',
-                    shortname String DEFAULT '',
-                    status String DEFAULT '',
-                    marketcode String DEFAULT '',
+                    secid       String DEFAULT '',
+                    boardid     String DEFAULT '',
+                    shortname   String DEFAULT '',
+                    status      String DEFAULT '',
+                    marketcode  String DEFAULT '',
                 )
                 ENGINE = MergeTree
                 PRIMARY KEY secid
@@ -58,23 +67,74 @@ impl ClickhouseDatabase {
             .bind(sql::Identifier(self.db.as_str()))
             .execute()
             .await?;
+        Ok(())
+    }
+
+    /// # Table Optimizations
+    /// In order to provide an efficient way for storing and querying data, a few important
+    /// decisions and optimizations were made when defining the table schema.
+    ///
+    /// ## Table Schema
+    /// The `candles` table stores the OHLCV (Open, High, Low, Close, Volume) data for
+    /// securities over different time frames. Each record in this table represents a single
+    /// candle for a specific security and time frame.
+    ///
+    /// The columns in the table are as follows:
+    /// - `secid`: The unique identifier for the security. It is stored as a
+    ///   `LowCardinality(String)` for efficient storage and querying of categorical data.
+    /// - `timeframe`: The time frame for the candle (e.g., 1 minute, 5 minutes, etc.). It is
+    ///   stored as an `Int16` and uses the `CODEC(Delta, Default)` codec for efficient storage.
+    /// - `open`: The opening price of the security for the candle's time frame.
+    /// - `close`: The closing price of the security for the candle's time frame.
+    /// - `high`: The highest price of the security for the candle's time frame.
+    /// - `low`: The lowest price of the security for the candle's time frame.
+    /// - `value`: The total value traded during the candle's time frame.
+    /// - `volume`: The total volume traded during the candle's time frame.
+    /// - `begin`: The start time of the candle.
+    /// - `end`: The end time of the candle.
+    ///
+    /// ## Storing Only Deltas
+    /// For columns where values typically change incrementally, the `CODEC(Delta, Default)`
+    /// keyword is used. This codec helps in reducing the storage space required by storing only
+    /// the differences (deltas) between consecutive values, rather than the full values. This
+    /// is particularly useful for columns like `open`, `close`, `high`, `low`, `value`, and
+    /// `volume`, where the changes between rows are often small.
+    ///
+    /// For example:
+    ///
+    /// ```sql
+    /// open       Nullable(Float64) CODEC(Delta, Default),
+    /// close      Nullable(Float64) CODEC(Delta, Default),
+    /// ```
+    ///
+    /// By using the `CODEC(Delta, Default)`, the storage engine can store the difference
+    /// between consecutive values, which can lead to significant space savings.
+    ///
+    /// ## ClickHouse Engine and Order
+    /// The table uses the `MergeTree` engine, which is optimized for analytical queries. The
+    /// `ORDER BY` clause specifies that the data should be ordered by `secid` and `begin`,
+    /// allowing efficient range queries based on security ID and time.
+    ///
+    /// ## Resources
+    ///  - [Using ClickHouse for financial market data - Christoph Wurm (ClickHouse)](https://youtu.be/Ojv6LPXKy2U?si=Je8BkFA8nOTczLZn)
+    pub async fn init_candles(&self) -> Result<()> {
         self.client
             .query(
                 "
                 CREATE TABLE IF NOT EXISTS ?.candles(
-                    secid String DEFAULT '',
-                    timeframe Int16 DEFAULT 0,
-                    open Float64 DEFAULT 0.0,
-                    close Float64 DEFAULT 0.0,
-                    high Float64 DEFAULT 0.0,
-                    low Float64 DEFAULT 0.0,
-                    value Float64 DEFAULT 0.0,
-                    volume Float64 DEFAULT 0.0,
-                    begin DateTime DEFAULT now(),
-                    end DateTime DEFAULT now(),
+                    secid      LowCardinality(String) DEFAULT '',
+                    timeframe  Int16 DEFAULT 1 CODEC(Delta, Default),
+                    open       Nullable(Float64) CODEC(Delta, Default),
+                    close      Nullable(Float64) CODEC(Delta, Default),
+                    high       Nullable(Float64) CODEC(Delta, Default),
+                    low        Nullable(Float64) CODEC(Delta, Default),
+                    value      Nullable(Float64) CODEC(Delta, Default),
+                    volume     Nullable(Float64) CODEC(Delta, Default),
+                    begin      DateTime CODEC(Delta, Default),
+                    end        DateTime CODEC(Delta, Default),
                 )
                 ENGINE = MergeTree
-                PRIMARY KEY uuid
+                ORDER BY (secid, begin)
                 ",
             )
             .bind(sql::Identifier(self.db.as_str()))
