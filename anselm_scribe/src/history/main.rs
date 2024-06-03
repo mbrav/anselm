@@ -1,11 +1,12 @@
-#![doc = include_str!("../../README.md")]
+use super::config::Config;
+use crate::config::GlobalConfig;
+use crate::db;
+use crate::runners;
 
-use anselm_scribe::config::Config;
-use anselm_scribe::db;
-use anselm_scribe::runners;
+use clap::Parser;
 
 #[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
+async fn main(global_conf: GlobalConfig) -> Result<(), Box<dyn std::error::Error>> {
     // Load config from CLI arguments and env variables
     let conf = Config::parse();
 
@@ -22,7 +23,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     // Execute runners
-    if conf.threads > 1 {
+    if global_conf.threads > 1 {
         //runners::parallel_runner(&conf).await?;
         runners::base_runner(&conf, &db).await?;
     } else {

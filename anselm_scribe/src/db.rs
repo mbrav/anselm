@@ -1,5 +1,5 @@
+use crate::models::CandleRecord;
 use crate::models::Security;
-use crate::{config::Config, models::CandleRecord};
 use clickhouse::{error::Result, sql, Client};
 
 /// Clickhouse Clickhouse Database struct
@@ -11,15 +11,15 @@ pub struct ClickhouseDatabase {
 /// Implementation for ClickhouseDatabase Struct
 impl ClickhouseDatabase {
     /// ClichouseDatabase instance factory
-    pub fn new(conf: &Config) -> Self {
+    pub fn new(url: &String, user: &String, pass: &String, db: &String) -> Self {
         let client = Client::default()
-            .with_url(&conf.ch_url)
-            .with_user(&conf.ch_user)
-            .with_password(&conf.ch_password);
+            .with_url(url)
+            .with_user(user)
+            .with_password(pass);
 
         Self {
             client,
-            db: conf.ch_db.clone(),
+            db: db.clone(),
         }
     }
 
