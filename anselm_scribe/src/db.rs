@@ -1,5 +1,5 @@
 use crate::config::Config;
-use crate::models::{Board, CandleRecord, Security, Trade};
+use crate::models::{Board, Trade};
 use clickhouse::{error::Result, sql, Client};
 
 /// Clickhouse Clickhouse Database struct
@@ -71,19 +71,20 @@ impl ClickhouseDatabase {
     pub async fn init_board(&self) -> Result<()> {
         self.client
             // TODO boolen
-            // is_traded        Boolean,
             .query(
                 "
                 CREATE TABLE IF NOT EXISTS ?.boards(
+                    engine           LowCardinality(String) Codec(ZSTD(1)),
+                    market           LowCardinality(String) Codec(ZSTD(1)),
                     id               UInt16,
                     board_group_id   UInt16,
-                    boardid          UInt16,
+                    boardid          LowCardinality(String) Codec(ZSTD(1)),
                     title            String,
-                    is_traded        LowCardinality(String) Codec(ZSTD(1))
+                    is_traded        Boolean,
                 )
                 ENGINE = MergeTree
-                PRIMARY KEY id
-                ORDER BY (title, is_traded);
+                PRIMARY KEY (engine, market, boardid)
+                ORDER BY (engine, market, boardid);
                 ",
             )
             .bind(sql::Identifier(self.db.as_str()))
@@ -201,21 +202,6 @@ impl ClickhouseDatabase {
         Ok(())
     }
 
-    /// Insert new security record in database
-    pub async fn insert_security(&self, security: &Security) -> Result<()> {
-        self.client
-            .query("INSERT INTO ?.securities (*) VALUES (?,?,?,?,?)")
-            .bind(sql::Identifier(self.db.as_str()))
-            .bind(security.secid.as_str())
-            .bind(security.boardid.as_str())
-            .bind(security.shortname.as_str())
-            .bind(security.status.as_str())
-            .bind(security.marketcode.as_str())
-            .execute()
-            .await?;
-        Ok(())
-    }
-
     /// Insert new board record in database
     pub async fn insert_board(&self, board: &Board) -> Result<()> {
         self.client
@@ -227,35 +213,12 @@ impl ClickhouseDatabase {
             .bind(board.board_group_id)
             .bind(board.boardid.as_str())
             .bind(board.title.as_str())
-            .bind(board.is_traded.as_str())
+            .bind(board.is_traded)
             .execute()
             .await?;
         Ok(())
     }
-    /// Insert new candle record in database
-    pub async fn insert_candle(&self, candle: &CandleRecord) -> Result<()> {
-        self.client
-            .query(
-                "INSERT INTO ?.candles (*) VALUES (?,?,?,?,?,?,?,?,?,?,toDateTime(?),toDateTime(?))",
-            )
-            .bind(sql::Identifier(self.db.as_str()))
-            .bind(candle.secid.as_str())
-            .bind(candle.boardid.as_str())
-            .bind(candle.shortname.as_str())
-            .bind(candle.timeframe)
-            .bind(candle.open)
-            .bind(candle.close)
-            .bind(candle.high)
-            .bind(candle.low)
-            .bind(candle.value)
-            .bind(candle.volume)
-            .bind(candle.begin.to_string())
-            .bind(candle.end.to_string())
-            .execute()
-            .await?;
 
-        Ok(())
-    }
     /// Insert new trade record in database
     pub async fn insert_trade(&self, trade: &Trade) -> Result<()> {
         self.client
@@ -279,15 +242,15 @@ impl ClickhouseDatabase {
 
         Ok(())
     }
-    /// Insert new candles in database as a batch
-    pub async fn insert_candle_batch(&self, candles: &Vec<CandleRecord>) -> Result<()> {
-        let mut insert = self
-            .client
-            .insert(format!("{}.candles", self.db).as_str())?;
-        for candle in candles {
-            insert.write(candle).await?;
-        }
-        insert.end().await?;
-        Ok(())
-    }
+    ///// Insert new candles in database as a batch
+    //pub async fn insert_candle_batch(&self, candles: &Vec<CandleRecord>) -> Result<()> {
+    //    let mut insert = self
+    //        .client
+    //        .insert(format!("{}.candles", self.db).as_str())?;
+    //    for candle in candles {
+    //        insert.write(candle).await?;
+    //    }
+    //    insert.end().await?;
+    //    Ok(())
+    //}
 }
