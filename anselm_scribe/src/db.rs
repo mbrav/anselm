@@ -1,5 +1,5 @@
-use crate::models::Security;
-use crate::{config::Config, models::CandleRecord};
+use crate::config::Config;
+use crate::models::{Board, CandleRecord, Security, Trade};
 use clickhouse::{error::Result, sql, Client};
 
 /// Clickhouse Clickhouse Database struct
@@ -36,8 +36,11 @@ impl ClickhouseDatabase {
             .execute()
             .await?;
 
+        // Init tables
         self.init_security().await?;
+        self.init_board().await?;
         self.init_candles().await?;
+        self.init_trades().await?;
 
         Ok(())
     }
@@ -48,14 +51,70 @@ impl ClickhouseDatabase {
             .query(
                 "
                 CREATE TABLE IF NOT EXISTS ?.securities(
-                    secid       String DEFAULT '',
-                    boardid     String DEFAULT '',
-                    shortname   String DEFAULT '',
-                    status      String DEFAULT '',
-                    marketcode  String DEFAULT '',
+                    secid       String,
+                    boardid     String,
+                    shortname   String,
+                    status      String,
+                    marketcode  String,
                 )
                 ENGINE = MergeTree
                 PRIMARY KEY secid
+                ",
+            )
+            .bind(sql::Identifier(self.db.as_str()))
+            .execute()
+            .await?;
+        Ok(())
+    }
+
+    /// Init board table
+    pub async fn init_board(&self) -> Result<()> {
+        self.client
+            // TODO boolen
+            // is_traded        Boolean,
+            .query(
+                "
+                CREATE TABLE IF NOT EXISTS ?.boards(
+                    id               UInt16,
+                    board_group_id   UInt16,
+                    boardid          UInt16,
+                    title            String,
+                    is_traded        LowCardinality(String) Codec(ZSTD(1))
+                )
+                ENGINE = MergeTree
+                PRIMARY KEY id
+                ORDER BY (title, is_traded);
+                ",
+            )
+            .bind(sql::Identifier(self.db.as_str()))
+            .execute()
+            .await?;
+        Ok(())
+    }
+
+    /// # Initialize Trade Record table
+    pub async fn init_trades(&self) -> Result<()> {
+        self.client
+            // TODO enum
+            //  buysell    Enum8('B' = 1, 'S' = 2) Codec(ZSTD(1)),
+            .query(
+                "
+                CREATE TABLE IF NOT EXISTS ?.trades(
+                    engine     LowCardinality(String) Codec(ZSTD(1)),
+                    market     LowCardinality(String) Codec(ZSTD(1)),
+                    secid      LowCardinality(String) Codec(ZSTD(1)),
+                    boardid    LowCardinality(String) Codec(ZSTD(1)),
+                    tradeid    UInt64 Codec(Delta, Default),
+                    buysell    LowCardinality(String) Codec(ZSTD(1)),
+                    quantity   UInt16,
+                    price      Float32 Codec(Delta, Default),
+                    value      Float32 Codec(Delta, Default),
+                    tradetime  DateTime Codec(DoubleDelta, ZSTD(1)),
+                    systime    DateTime Codec(DoubleDelta, ZSTD(1)),
+                )
+                ENGINE = MergeTree
+                PARTITION BY toYYYYMM(tradetime)
+                ORDER BY (engine, market, secid, boardid, tradetime, tradeid);
                 ",
             )
             .bind(sql::Identifier(self.db.as_str()))
@@ -156,6 +215,23 @@ impl ClickhouseDatabase {
             .await?;
         Ok(())
     }
+
+    /// Insert new board record in database
+    pub async fn insert_board(&self, board: &Board) -> Result<()> {
+        self.client
+            .query("INSERT INTO ?.boards (*) VALUES (?,?,?,?,?,?,?)")
+            .bind(sql::Identifier(self.db.as_str()))
+            .bind(board.engine.as_str())
+            .bind(board.market.as_str())
+            .bind(board.id)
+            .bind(board.board_group_id)
+            .bind(board.boardid.as_str())
+            .bind(board.title.as_str())
+            .bind(board.is_traded.as_str())
+            .execute()
+            .await?;
+        Ok(())
+    }
     /// Insert new candle record in database
     pub async fn insert_candle(&self, candle: &CandleRecord) -> Result<()> {
         self.client
@@ -175,6 +251,29 @@ impl ClickhouseDatabase {
             .bind(candle.volume)
             .bind(candle.begin.to_string())
             .bind(candle.end.to_string())
+            .execute()
+            .await?;
+
+        Ok(())
+    }
+    /// Insert new trade record in database
+    pub async fn insert_trade(&self, trade: &Trade) -> Result<()> {
+        self.client
+            .query(
+                "INSERT INTO ?.trades (*) VALUES (?,?,?,?,?,?,?,?,?,toDateTime(?),toDateTime(?))",
+            )
+            .bind(sql::Identifier(self.db.as_str()))
+            .bind(trade.secid.as_str())
+            .bind(trade.market.as_str())
+            .bind(trade.secid.as_str())
+            .bind(trade.boardid.as_str())
+            .bind(trade.tradeid)
+            .bind(trade.buysell.as_str())
+            .bind(trade.quantity)
+            .bind(trade.price)
+            .bind(trade.value)
+            .bind(trade.tradetime.to_string())
+            .bind(trade.systime.to_string())
             .execute()
             .await?;
 

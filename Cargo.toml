@@ -6,7 +6,7 @@ resolver = "2"
 [workspace.package]
 version = "0.0.2"
 edition = "2021"
-description = "Stock trading system with a proof for existence of Truth"
+description = "Market Data gathering and trading system with a proof for existence of Truth"
 readme = "README.md"
 repository = "https://github.com/mbrav/anselm"
 license-file = "LICENSE"
@@ -29,8 +29,8 @@ opt-level = 2
 
 # Build optimizations: https://github.com/johnthagen/min-sized-rust
 [profile.release]
-panic = "abort"
-strip = true      # Strip symbols from binary
+# panic = "abort"
+# strip = true      # Strip symbols from binary
 opt-level = "z"   # Optimize for size
 lto = true        # Enable link time optimization
 codegen-units = 1 # Maximize size reduction optimizations (takes longer)

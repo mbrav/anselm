@@ -4,6 +4,6 @@
     </a>
 </p>
 
-<h1 align="center">Anselm</h1>
+<h1 align="center">Anselm <sup>Canterbury</sup></h1>
 
-<p align="center">Stock trading system with a proof for existence of Truth</p>
+<p align="center">Market Data gathering and trading system with a proof for existence of Truth</p>

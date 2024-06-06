@@ -1,6 +1,6 @@
 use crate::config::Config;
 use crate::db::ClickhouseDatabase;
-use crate::models::{CandleRecord, Security};
+use crate::models::{Board, CandleRecord, Security, Trade};
 use chrono::{Duration, NaiveDate};
 use std::collections::HashMap;
 //use std::sync::Arc;
@@ -17,67 +17,81 @@ pub async fn base_runner(
     // Set date
     let date = NaiveDate::parse_from_str(conf.md_date_start.as_str(), "%Y-%m-%d")?;
 
-    let securities = get_all_securities(db).await?;
+    let boards = get_all_boards(db).await?;
 
-    'outer: for sec in securities {
-        let mut empty_day = 0;
-        'inner: for n in 0..conf.md_days {
-            // Calculate date start based on reverse parameter
-            let date_start = if conf.md_reverse {
-                // If reverse, subtract current day making date start less in reverse direction
-                (date - Duration::days(n + 1)).to_string()
-            } else {
-                // Otherwise, make date start less than date end
-                (date + Duration::days(n)).to_string()
-            };
-            // Calculate date end based on reverse parameter
-            let date_end = if conf.md_reverse {
-                (date - Duration::days(n)).to_string()
-            } else {
-                (date + Duration::days(n + 1)).to_string()
-            };
-
-            // Fetch candles
-            let candles = sec
-                .fetch_candles(conf.md_interval, &date_start, &date_end)
-                .await?;
-
-            // Check if candles where empty for curent day
-            if candles.is_empty() {
-                empty_day += 1;
-                // If empty day count surpassed threshold then continue onto next security
-                if empty_day > conf.md_day_threshold {
-                    continue 'outer;
-                }
-                // Otherwise don't save candles and continue onto next day
-                continue 'inner;
-            }
-
-            // Save market data
-            if let Some(db) = db {
-                // Save candles array to db
-                for candle in &candles {
-                    db.insert_candle(candle).await?;
-                }
-                //db.insert_candle_batch(&candles).await?;
-                println!(
-                    "Inserted {} candles for security {} in db",
-                    candles.len(),
-                    sec.secid
-                );
-            } else {
-                // Otherwise Save market data as JSON to disk
-                let file_path = format!("{}/{}-{}.json", &conf.md_path, &sec.secid, &date_start);
-                save_candles_to_file(&file_path, &candles).await?;
-                println!(
-                    "saved {} candles for security {} to {}",
-                    candles.len(),
-                    sec.secid,
-                    file_path
-                );
-            }
-        }
+    // Save market data
+    if let Some(db) = db {
+        // Save candles array to db
+        //for board in &boards {
+        //    db.insert_board(board).await?;
+        //    //db.insert_candle_batch(&candles).await?;
+        //    println!("Inserted board {} ", board.boardid);
+        //}
+    } else {
+        println!("No inserting into db");
     }
+
+    //let securities = get_all_securities(db).await?;
+    //
+    //'outer: for sec in securities {
+    //    let mut empty_day = 0;
+    //    'inner: for n in 0..conf.md_days {
+    //        // Calculate date start based on reverse parameter
+    //        let date_start = if conf.md_reverse {
+    //            // If reverse, subtract current day making date start less in reverse direction
+    //            (date - Duration::days(n + 1)).to_string()
+    //        } else {
+    //            // Otherwise, make date start less than date end
+    //            (date + Duration::days(n)).to_string()
+    //        };
+    //        // Calculate date end based on reverse parameter
+    //        let date_end = if conf.md_reverse {
+    //            (date - Duration::days(n)).to_string()
+    //        } else {
+    //            (date + Duration::days(n + 1)).to_string()
+    //        };
+    //
+    //        // Fetch candles
+    //        let candles = sec
+    //            .fetch_candles(conf.md_interval, &date_start, &date_end)
+    //            .await?;
+    //
+    //        // Check if candles where empty for curent day
+    //        if candles.is_empty() {
+    //            empty_day += 1;
+    //            // If empty day count surpassed threshold then continue onto next security
+    //            if empty_day > conf.md_day_threshold {
+    //                continue 'outer;
+    //            }
+    //            // Otherwise don't save candles and continue onto next day
+    //            continue 'inner;
+    //        }
+    //
+    //        // Save market data
+    //        if let Some(db) = db {
+    //            // Save candles array to db
+    //            for candle in &candles {
+    //                db.insert_candle(candle).await?;
+    //            }
+    //            //db.insert_candle_batch(&candles).await?;
+    //            println!(
+    //                "Inserted {} candles for security {} in db",
+    //                candles.len(),
+    //                sec.secid
+    //            );
+    //        } else {
+    //            // Otherwise Save market data as JSON to disk
+    //            let file_path = format!("{}/{}-{}.json", &conf.md_path, &sec.secid, &date_start);
+    //            save_candles_to_file(&file_path, &candles).await?;
+    //            println!(
+    //                "saved {} candles for security {} to {}",
+    //                candles.len(),
+    //                sec.secid,
+    //                file_path
+    //            );
+    //        }
+    //    }
+    //}
 
     Ok(())
 }
@@ -222,6 +236,50 @@ pub async fn base_runner(
 //    Ok(())
 //}
 //
+
+async fn get_all_boards(
+    db: &Option<ClickhouseDatabase>,
+) -> Result<Vec<Board>, Box<dyn std::error::Error>> {
+    let engine = "stock"; // TODO Actualize variance
+    let market = "shares"; // TODO Actualize variance
+    let url = format!("https://iss.moex.com/iss/engines/{engine}/markets/{market}/boards.json");
+
+    let resp = reqwest::get(url)
+        .await?
+        .json::<HashMap<String, serde_json::Value>>()
+        .await?;
+
+    let resp_iter = resp["boards"]["data"]
+        .as_array()
+        .expect("Error parsing securities data")
+        .iter();
+
+    let records: Vec<Board> = resp_iter
+        .map(|x| Board {
+            engine: engine.to_string(),                    // TODO Actualize variance
+            market: market.to_string(),                    // TODO Actualize variance
+            id: x[0].as_i64().unwrap() as i16, // Convert the value to i64 first, then cast to i16
+            board_group_id: x[1].as_i64().unwrap() as i16, // Convert the value to i64 first, then cast to i16
+            boardid: x[2].as_str().unwrap().into(), // Convert the value to i64 first, then cast to i16
+            title: x[3].as_str().unwrap().into(),
+            //is_traded: x[4].as_i64().unwrap() != 0, // Convert 0 or 1 to a bool
+            //is_traded: x[4].as_str().unwrap().into(), // Convert 0 or 1 to a bool
+            is_traded: engine.to_string(), // FIX: Bad
+        })
+        .collect();
+    println!("Got {} Boards", records.len());
+
+    // Insert boards into db if Option is not empty
+    if let Some(db) = db {
+        for b in &records {
+            db.insert_board(b).await?;
+        }
+        println!("Inserted {} Boards into DB", records.len());
+    }
+
+    Ok(records)
+}
+
 async fn get_all_securities(
     db: &Option<ClickhouseDatabase>,
 ) -> Result<Vec<Security>, Box<dyn std::error::Error>> {
