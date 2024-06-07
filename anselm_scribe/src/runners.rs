@@ -1,20 +1,21 @@
 use crate::config::Config;
 use crate::db::ClickhouseDatabase;
-use crate::models::Board;
-//use chrono::{Duration, NaiveDate};
+use crate::models::{Board, Trade};
 use std::collections::HashMap;
-use std::time::{Duration, Instant};
+use std::time::Instant;
+use tokio::fs::File;
+use tokio::io::AsyncWriteExt;
 
 /// Base runner for running on a single thread
 pub async fn base_runner(
-    _conf: &Config,
+    conf: &Config,
     db: &Option<ClickhouseDatabase>,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let boards = get_all_boards().await?;
 
     // Save board market data
     for board in &boards {
-        run_board(db, board).await?;
+        run_board(conf, db, board).await?;
     }
 
     //let securities = get_all_securities(db).await?;
@@ -115,6 +116,7 @@ async fn get_all_boards() -> Result<Vec<Board>, Box<dyn std::error::Error>> {
 
 /// Insert trades
 async fn run_board(
+    conf: &Config,
     db: &Option<ClickhouseDatabase>,
     board: &Board,
 ) -> Result<(), Box<dyn std::error::Error>> {
@@ -132,6 +134,7 @@ async fn run_board(
 
     // Insert trades for each board
     let mut start: i32 = 0;
+    let mut loop_num: i32 = 1;
     loop {
         let trades = board
             .fetch_trades(&board.engine, &board.market, start)
@@ -139,41 +142,55 @@ async fn run_board(
 
         if trades.is_empty() {
             println!(
-                "Stopping gathering market data for board {}, engine: {} market: {}",
-                board.boardid, board.engine, board.market
+                "Stopping gathering market data for board {}, engine: {} market: {}, loop {}",
+                board.boardid, board.engine, board.market, loop_num
             );
             break;
         }
 
+        // Save market data
+        let start_t: Instant = Instant::now();
         if let Some(db) = db {
-            let start: Instant = Instant::now();
             // Insert trades into the database
             for trade in &trades {
                 db.insert_trade(trade).await?;
             }
-            let end: Duration = start.elapsed();
-            println!("Trades insertion into db elapsed {end:.3?}");
+            println!(
+                "Trades insertion into db, elapsed {:?}, loop {loop_num}, start, {start}",
+                start_t.elapsed()
+            );
         } else {
             println!("Not inserting trades into db");
+            // Otherwise Save market data as JSON to disk
+            let file_path = format!(
+                "{}/{}-{}-{}.json",
+                conf.md_path, board.engine, board.market, loop_num
+            );
+            save_trades_to_file(&file_path, &trades).await?;
+            println!(
+                "Trades saved to {file_path}, elapsed {:?}, loop {loop_num}, start, {start}",
+                start_t.elapsed()
+            );
         }
 
         // Batch insert trades into DB
         // db.insert_trades(&trades).await?;
 
         start += trades.len() as i32;
+        loop_num += 1;
     }
     Ok(())
 }
 
-///// Save candle records to a JSON file
-//async fn save_candles_to_file(
-//    file_path: &str,
-//    candles: &Vec<CandleRecord>,
-//) -> Result<(), Box<dyn std::error::Error>> {
-//    let mut file = File::create(file_path).await?;
-//    let candles_json = serde_json::to_string(&candles)?;
-//    file.write_all(candles_json.as_bytes()).await?;
-//    println!("Candles saved to {}", file_path);
-//
-//    Ok(())
-//}
+/// Save trades to a JSON file
+async fn save_trades_to_file(
+    file_path: &str,
+    candles: &Vec<Trade>,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let mut file = File::create(file_path).await?;
+    let candles_json = serde_json::to_string(&candles)?;
+    file.write_all(candles_json.as_bytes()).await?;
+    println!("Candles saved to {}", file_path);
+
+    Ok(())
+}
