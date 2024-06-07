@@ -10,10 +10,10 @@ categories.workspace = true
 keywords.workspace = true
 
 [dependencies]
-chrono.workspace = true
 clap.workspace = true
-clickhouse = { version = "0.11" }
+clickhouse = { version = "0.11", features = ["time"] }
 reqwest = { version = "0.12", features = ["json"] }
 tokio = { version = "1", features = ["full"] }
 serde.workspace = true
 serde_json.workspace = true
+time = { version = "0.3", features = ["parsing", "macros"] }

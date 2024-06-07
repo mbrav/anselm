@@ -82,7 +82,7 @@ impl ClickhouseDatabase {
                     secid      LowCardinality(String) Codec(ZSTD(1)),
                     boardid    LowCardinality(String) Codec(ZSTD(1)),
                     tradeid    UInt64 Codec(Delta, Default),
-                    buysell    Enum8('B' = 1, 'S' = 2) Codec(ZSTD(1)),
+                    buysell    LowCardinality(String) Codec(ZSTD(1)),
                     quantity   UInt16,
                     price      Float64 Codec(Gorilla, ZSTD(1)),
                     value      Float64 Codec(Gorilla, ZSTD(1)),
@@ -140,13 +140,13 @@ impl ClickhouseDatabase {
 
         Ok(())
     }
-    /// Insert new trades in database as a batch
-    pub async fn insert_trades(&self, trades: &Vec<Trade>) -> Result<()> {
+    /// Insert a batch of trades into database
+    pub async fn insert_trades(&self, trades: &[Trade]) -> Result<()> {
         let mut insert = self.client.insert(format!("{}.trades", self.db).as_str())?;
         for trade in trades {
             insert.write(trade).await?;
         }
-        insert.end().await?;
+        insert.end().await.unwrap();
         Ok(())
     }
 }

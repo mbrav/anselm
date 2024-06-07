@@ -40,4 +40,8 @@ pub struct Config {
     /// Specify number of threads to uses, 0 will use all available cores
     #[arg(short, long, env = "MD_THREADS", default_value_t = 1)]
     pub threads: usize,
+
+    /// Specify chunksize of market data to save into db
+    #[arg(short, long, env = "MD_THREADS", default_value_t = 1000)]
+    pub chunks: usize,
 }

@@ -135,7 +135,7 @@ async fn run_board(
     // Insert trades for each board
     let mut start: i32 = 0;
     let mut loop_num: i32 = 1;
-    loop {
+    'outer: loop {
         let trades = board
             .fetch_trades(&board.engine, &board.market, start)
             .await?;
@@ -145,19 +145,22 @@ async fn run_board(
                 "Stopping gathering market data for board {}, engine: {} market: {}, loop {}",
                 board.boardid, board.engine, board.market, loop_num
             );
-            break;
+            break 'outer;
         }
 
         // Save market data
         let time_trade: Instant = Instant::now();
         if let Some(db) = db {
             // Insert trades into the database
-            for trade in &trades {
-                db.insert_trade(trade).await?;
+            let mut chunk_count = 1;
+            for chunk in trades.chunks(conf.chunks) {
+                db.insert_trades(chunk).await?;
+                chunk_count += 1;
             }
-            // db.insert_trades(&trades).await?;
             println!(
-                "Trades savedto db loop {loop_num}, start {start}, {:.2?}",
+                "{} Trades saved to db, chunk/chunk_size/time {chunk_count}/{}/{:.2?}",
+                conf.chunks,
+                trades.len(),
                 time_trade.elapsed()
             );
         } else {
@@ -169,7 +172,7 @@ async fn run_board(
             );
             save_trades_to_file(&file_path, &trades).await?;
             println!(
-                "Trades saved to {file_path}, loop {loop_num}, start {start}, {:.2?}",
+                "Trades saved to {file_path}, loop/start/time {loop_num}/{start}/{:.2?}",
                 time_trade.elapsed()
             );
         }
