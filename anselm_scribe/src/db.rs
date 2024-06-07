@@ -82,10 +82,10 @@ impl ClickhouseDatabase {
                     secid      LowCardinality(String) Codec(ZSTD(1)),
                     boardid    LowCardinality(String) Codec(ZSTD(1)),
                     tradeid    UInt64 Codec(Delta, Default),
-                    buysell    LowCardinality(String) Codec(ZSTD(1)),
+                    buysell    Enum8('B' = 1, 'S' = 2) Codec(ZSTD(1)),
                     quantity   UInt16,
-                    price      Float32 Codec(Delta, Default),
-                    value      Float32 Codec(Delta, Default),
+                    price      Float64 Codec(Gorilla, ZSTD(1)),
+                    value      Float64 Codec(Gorilla, ZSTD(1)),
                     tradetime  DateTime Codec(DoubleDelta, ZSTD(1)),
                     systime    DateTime Codec(DoubleDelta, ZSTD(1)),
                 )

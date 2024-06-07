@@ -16,8 +16,8 @@ pub struct Trade {
     pub tradeid: i64,
     pub buysell: String,
     pub quantity: i16,
-    pub price: f32,
-    pub value: f32,
+    pub price: f64,
+    pub value: f64,
     pub tradetime: NaiveDateTime,
     pub systime: NaiveDateTime,
 }
@@ -90,9 +90,9 @@ impl Board {
                 .unwrap(),
                 boardid: x[2].as_str().unwrap().into(),
                 secid: x[3].as_str().unwrap().into(),
-                price: x[4].as_f64().unwrap() as f32,
+                price: x[4].as_f64().unwrap(),
                 quantity: x[5].as_i64().unwrap() as i16,
-                value: x[6].as_f64().unwrap() as f32,
+                value: x[6].as_f64().unwrap(),
                 systime: NaiveDateTime::parse_from_str(x[9].as_str().unwrap(), "%Y-%m-%d %H:%M:%S")
                     .unwrap(),
                 buysell: x[10].as_str().unwrap().into(),
