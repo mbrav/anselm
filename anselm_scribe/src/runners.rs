@@ -1,8 +1,9 @@
 use crate::config::Config;
 use crate::db::ClickhouseDatabase;
-use crate::models::{Board, Trade};
+use crate::models::Board;
 //use chrono::{Duration, NaiveDate};
 use std::collections::HashMap;
+use std::time::{Duration, Instant};
 
 /// Base runner for running on a single thread
 pub async fn base_runner(
@@ -12,40 +13,8 @@ pub async fn base_runner(
     let boards = get_all_boards().await?;
 
     // Save board market data
-    if let Some(db) = db {
-        for board in &boards {
-            // Insert board into db
-            db.insert_board(board).await?;
-            println!(
-                "Inserted board {}, engine: {} market: {}",
-                board.boardid, board.engine, board.market
-            );
-
-            // Insert trades for each board
-            let mut start: i32 = 0;
-            loop {
-                let trades = board
-                    .fetch_trades(&board.engine, &board.market, start)
-                    .await?;
-
-                if trades.is_empty() {
-                    println!(
-                        "Stopping gathering market data for board {}, engine: {} market: {}",
-                        board.boardid, board.engine, board.market
-                    );
-                    break;
-                }
-
-                // Insert trades into the database
-                for trade in &trades {
-                    db.insert_trade(trade).await?;
-                }
-
-                start += trades.len() as i32;
-            }
-        }
-    } else {
-        println!("Not inserting into db");
+    for board in &boards {
+        run_board(db, board).await?;
     }
 
     //let securities = get_all_securities(db).await?;
@@ -142,6 +111,58 @@ async fn get_all_boards() -> Result<Vec<Board>, Box<dyn std::error::Error>> {
     println!("Got {} Boards", records.len());
 
     Ok(records)
+}
+
+/// Insert trades
+async fn run_board(
+    db: &Option<ClickhouseDatabase>,
+    board: &Board,
+) -> Result<(), Box<dyn std::error::Error>> {
+    if let Some(db) = db {
+        // Insert board into db
+        db.insert_board(board).await?;
+        println!(
+            "Inserted board {}, engine: {} market: {}",
+            board.boardid, board.engine, board.market
+        );
+        // Insert board into the database
+    } else {
+        println!("Not inserting board into db");
+    }
+
+    // Insert trades for each board
+    let mut start: i32 = 0;
+    loop {
+        let trades = board
+            .fetch_trades(&board.engine, &board.market, start)
+            .await?;
+
+        if trades.is_empty() {
+            println!(
+                "Stopping gathering market data for board {}, engine: {} market: {}",
+                board.boardid, board.engine, board.market
+            );
+            break;
+        }
+
+        if let Some(db) = db {
+            let start: Instant = Instant::now();
+            // Insert trades into the database
+            for trade in &trades {
+                db.insert_trade(trade).await?;
+            }
+            let end: Duration = start.elapsed();
+            println!("Trades insertion into db elapsed {end:.3?}");
+        } else {
+            println!("Not inserting trades into db");
+        }
+
+        // Batch insert trades into DB
+        // db.insert_trades(&trades).await?;
+
+        start += trades.len() as i32;
+    }
+    Ok(())
 }
 
 ///// Save candle records to a JSON file
