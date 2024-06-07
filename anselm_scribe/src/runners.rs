@@ -155,6 +155,7 @@ async fn run_board(
             for trade in &trades {
                 db.insert_trade(trade).await?;
             }
+            // db.insert_trades(&trades).await?;
             println!(
                 "Trades savedto db loop {loop_num}, start {start}, {:.2?}",
                 time_trade.elapsed()

@@ -91,7 +91,7 @@ impl ClickhouseDatabase {
                 )
                 ENGINE = MergeTree
                 PARTITION BY toYYYYMM(tradetime)
-                ORDER BY (engine, market, secid, boardid, tradetime, tradeid);
+                ORDER BY (engine, market, secid, boardid, tradeid, tradetime, systime);
                 ",
             )
             .bind(sql::Identifier(self.db.as_str()))
@@ -141,10 +141,10 @@ impl ClickhouseDatabase {
         Ok(())
     }
     /// Insert new trades in database as a batch
-    pub async fn insert_trades(&self, candles: &Vec<Trade>) -> Result<()> {
+    pub async fn insert_trades(&self, trades: &Vec<Trade>) -> Result<()> {
         let mut insert = self.client.insert(format!("{}.trades", self.db).as_str())?;
-        for candle in candles {
-            insert.write(candle).await?;
+        for trade in trades {
+            insert.write(trade).await?;
         }
         insert.end().await?;
         Ok(())
