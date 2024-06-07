@@ -2,6 +2,7 @@ use chrono::NaiveDateTime;
 use clickhouse::Row;
 use serde::Serialize;
 use std::collections::HashMap;
+use std::time::Instant;
 
 /// Trade Record
 #[derive(Debug, Clone, Serialize, Row)]
@@ -48,10 +49,11 @@ impl Board {
             engine, market
         );
 
-        println!("Geting URL: {url}");
-
         // Create a client
         let client = reqwest::Client::new();
+
+        // Time req
+        let time_req: Instant = Instant::now();
 
         // Fetch response
         let resp = client
@@ -61,6 +63,10 @@ impl Board {
             .await?
             .json::<HashMap<String, serde_json::Value>>()
             .await?;
+        let time_req = time_req.elapsed();
+
+        // Time Parsing
+        let time_parse: Instant = Instant::now();
 
         // Convert response into an iterator
         let resp_iter = resp["trades"]["data"]
@@ -106,13 +112,15 @@ impl Board {
         };
 
         println!(
-            "Got {} Trades for Engine {}, Market {}, from {} to {}, start {}",
+            "Got {} Trades for Engine {}, Market {}, from {} to {}, start {}, r: {:.2?} p: {:.2?}",
             records.len(),
             engine,
             market,
             first_trade,
             last_trade,
             start,
+            time_req,
+            time_parse.elapsed()
         );
 
         Ok(records)

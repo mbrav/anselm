@@ -149,15 +149,15 @@ async fn run_board(
         }
 
         // Save market data
-        let start_t: Instant = Instant::now();
+        let time_trade: Instant = Instant::now();
         if let Some(db) = db {
             // Insert trades into the database
             for trade in &trades {
                 db.insert_trade(trade).await?;
             }
             println!(
-                "Trades insertion into db, elapsed {:?}, loop {loop_num}, start, {start}",
-                start_t.elapsed()
+                "Trades savedto db loop {loop_num}, start {start}, {:.2?}",
+                time_trade.elapsed()
             );
         } else {
             println!("Not inserting trades into db");
@@ -168,8 +168,8 @@ async fn run_board(
             );
             save_trades_to_file(&file_path, &trades).await?;
             println!(
-                "Trades saved to {file_path}, elapsed {:?}, loop {loop_num}, start, {start}",
-                start_t.elapsed()
+                "Trades saved to {file_path}, loop {loop_num}, start {start}, {:.2?}",
+                time_trade.elapsed()
             );
         }
 
@@ -190,7 +190,5 @@ async fn save_trades_to_file(
     let mut file = File::create(file_path).await?;
     let candles_json = serde_json::to_string(&candles)?;
     file.write_all(candles_json.as_bytes()).await?;
-    println!("Candles saved to {}", file_path);
-
     Ok(())
 }
