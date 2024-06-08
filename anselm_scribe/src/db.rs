@@ -126,8 +126,8 @@ impl ClickhouseDatabase {
                 CREATE TABLE IF NOT EXISTS ?.trades(
                     engine     LowCardinality(String) Codec(ZSTD(1)),
                     market     LowCardinality(String) Codec(ZSTD(1)),
-                    secid      LowCardinality(String) Codec(ZSTD(1)),
                     boardid    LowCardinality(String) Codec(ZSTD(1)),
+                    secid      LowCardinality(String) Codec(ZSTD(1)),
                     tradeid    UInt64 Codec(Delta, Default),
                     buysell    LowCardinality(String) Codec(ZSTD(1)),
                     quantity   UInt32,
