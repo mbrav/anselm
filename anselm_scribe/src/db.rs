@@ -53,7 +53,7 @@ impl ClickhouseDatabase {
         self.client
             .query(
                 "
-                CREATE TABLE IF NOT EXISTS ?.ebgines(
+                CREATE TABLE IF NOT EXISTS ?.engines(
                     id               UInt32,
                     name             String,
                     title            String
@@ -149,11 +149,27 @@ impl ClickhouseDatabase {
 
     /// # Insert a batch of Engine Records into database
     pub async fn insert_engines(&self, engines: &[Engine]) -> Result<()> {
+        // Create sesstion for multiple insertions
         let mut insert = self
             .client
             .insert(format!("{}.engines", self.db).as_str())?;
+
         for engine in engines {
-            insert.write(engine).await?;
+            // Check if Engine with name already exists
+            let count = self
+                .client
+                .query("SELECT count() FROM ?.engines WHERE name=?")
+                .bind(sql::Identifier(self.db.as_str()))
+                .bind(&engine.name)
+                .fetch_one::<u64>()
+                .await?;
+
+            if count == 0 {
+                println!("Inserting DB: Engine '{}'", engine.name);
+                insert.write(engine).await?;
+            } else {
+                println!("Exists in DB: Engine '{}'", engine.name);
+            }
         }
         insert.end().await.unwrap();
         Ok(())
@@ -161,22 +177,71 @@ impl ClickhouseDatabase {
 
     /// # Insert a batch of Market Records into database
     pub async fn insert_markets(&self, markets: &[Market]) -> Result<()> {
+        // Create sesstion for multiple insertions
         let mut insert = self
             .client
             .insert(format!("{}.markets", self.db).as_str())?;
+
         for market in markets {
-            insert.write(market).await?;
+            // Check if Market already exists
+            let count = self
+                .client
+                .query("SELECT count() FROM ?.markets WHERE name=? AND engine=?")
+                .bind(sql::Identifier(self.db.as_str()))
+                .bind(&market.name)
+                .bind(&market.engine)
+                .fetch_one::<u64>()
+                .await?;
+
+            if count == 0 {
+                println!(
+                    "Inserting DB: Market '{}' for Engine '{}'",
+                    market.name, market.engine
+                );
+                insert.write(market).await?;
+            } else {
+                println!(
+                    "Exists in DB: Market '{}' for Engine '{}'",
+                    market.name, market.engine
+                );
+            }
         }
+
         insert.end().await.unwrap();
         Ok(())
     }
 
     /// # Insert a batch of Board Records into database
     pub async fn insert_boards(&self, boards: &[Board]) -> Result<()> {
+        // Create sesstion for multiple insertions
         let mut insert = self.client.insert(format!("{}.boards", self.db).as_str())?;
+
         for board in boards {
-            insert.write(board).await?;
+            // Check if Board already exists
+            let count = self
+                .client
+                .query("SELECT count() FROM ?.boards WHERE boardid=? AND market=? AND engine=?")
+                .bind(sql::Identifier(self.db.as_str()))
+                .bind(&board.boardid)
+                .bind(&board.market)
+                .bind(&board.engine)
+                .fetch_one::<u64>()
+                .await?;
+
+            if count == 0 {
+                println!(
+                    "Inserting DB: Board '{}' for Market '{}' for Engine '{}'",
+                    board.boardid, board.market, board.engine,
+                );
+                insert.write(board).await?;
+            } else {
+                println!(
+                    "Exists in DB: Board '{}' for Market '{}' for Engine '{}'",
+                    board.boardid, board.market, board.engine,
+                );
+            }
         }
+
         insert.end().await.unwrap();
         Ok(())
     }

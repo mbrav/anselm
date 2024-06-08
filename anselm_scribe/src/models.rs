@@ -113,19 +113,18 @@ impl Board {
         // Define Timezone for MOEX
         let moscow_offset = UtcOffset::from_hms(3, 0, 0)?;
 
-        println!("{url}");
-
         // Parse iterator
         let records: Vec<Trade> = resp_iter
             .map(|x| {
                 // Replace space with to make it ISO8601 compliant
-                // TODO: Uncomment
                 let iso_date = x[9].as_str().unwrap().replace(' ', "T");
                 // Parse date by converting first to primitive date
                 // Then to timezone aware datetime
                 let trade_time = PrimitiveDateTime::parse(&iso_date, &Iso8601::DEFAULT).unwrap();
+                let price = x[4].as_f64().unwrap();
+                let quantity = x[5].as_i64().unwrap();
+                let value = price * quantity as f64;
                 Trade {
-                    // TODO: Uncomment
                     engine: engine.clone(),
                     market: market.clone(),
                     tradeid: x[0].as_i64().unwrap(),
@@ -133,9 +132,9 @@ impl Board {
                     tradetime: trade_time.assume_offset(moscow_offset),
                     boardid: x[2].as_str().unwrap().into(),
                     secid: x[3].as_str().unwrap().into(),
-                    price: x[4].as_f64().unwrap(),
-                    quantity: x[5].as_i64().unwrap() as i32,
-                    value: x[6].as_f64().unwrap(),
+                    price,
+                    quantity: quantity as i32,
+                    value,
                     systime: trade_time.assume_offset(moscow_offset),
                     buysell: x[10].as_str().unwrap().into(),
                 }
@@ -155,8 +154,14 @@ impl Board {
         };
 
         println!(
-            "Got {} Trades for '{market}/{engine}' {first_trade} until {last_trade}, start {start}, r: {:.2?} p: {:.2?}",
+            "Trades[{}]: Board '{}' for Market '{}' for Engine '{}' from {} until {} start {} response {:?} parse {:?}",
             records.len(),
+            self.boardid,
+            market,
+            engine,
+            first_trade,
+            last_trade,
+            start,
             time_req,
             time_parse.elapsed()
         );
@@ -188,7 +193,7 @@ pub async fn get_engines() -> Result<Vec<Engine>, Box<dyn std::error::Error>> {
         })
         .collect();
 
-    println!("Got {} Engines", records.len());
+    println!("API GET Engines[{}]", records.len());
     Ok(records)
 }
 
@@ -221,7 +226,7 @@ pub async fn get_markets(engine: &String) -> Result<Vec<Market>, Box<dyn std::er
         })
         .collect();
 
-    println!("Got {} Markets for Engine '{engine}'", records.len());
+    println!("API GET Markets[{}]: Engine '{}'", records.len(), engine);
     Ok(records)
 }
 
@@ -259,8 +264,10 @@ pub async fn get_boards(
         .collect();
 
     println!(
-        "Got {} Boards for Market '{market}' for Engine '{engine}'",
-        records.len()
+        "API GET Boards[{}]: Market '{}' for Engine '{}'",
+        records.len(),
+        market,
+        engine
     );
     Ok(records)
 }

@@ -15,7 +15,6 @@ pub async fn base_runner(
         // Save Engines to db if defined
         if let Some(db) = db {
             db.insert_engines(chunk).await?;
-            println!("Inserted {} Engines into db", engines.len());
         }
 
         // FIX: Implement trades format parsing for all types of Engines, Markets and Boards
@@ -41,7 +40,6 @@ async fn run_engine(
         // Save Markets to db if defined
         if let Some(db) = db {
             db.insert_markets(chunk).await?;
-            println!("Inserted {} Markets into db", markets.len());
         }
 
         // FIX: Implement trades format parsing for all types of Engines, Markets and Boards
@@ -70,7 +68,6 @@ async fn run_market(
         // Save Board market data
         if let Some(db) = db {
             db.insert_boards(chunk).await?;
-            println!("Inserted {} Boards, engine/market", boards.len());
         }
 
         // FIX: Implement trades format parsing for all types of Engines, Markets and Boards
@@ -106,7 +103,7 @@ async fn run_board(
 
         if trades.is_empty() {
             println!(
-                "Stopping gathering market data for board {}, engine: {} market: {}, loop {}",
+                "Board '{}' STOP Gathering: Market '{}' for Engine '{}' loop {}",
                 board.boardid, board.engine, board.market, loop_num
             );
             break 'outer;
@@ -121,7 +118,7 @@ async fn run_board(
                 db.insert_trades(chunk).await?;
                 chunk_count += 1;
                 println!(
-                    "{} Trades saved to db, chunk/chunk_size/time {}/{}/{:.2?}",
+                    "Trades[{}] chunk saved to DB: chunk {} chunk_size {} time {:.2?}",
                     chunk.len(),
                     chunk_count,
                     conf.chunks,
@@ -137,7 +134,11 @@ async fn run_board(
             );
             save_trades_to_file(&file_path, &trades).await?;
             println!(
-                "Trades saved to {file_path}, loop/start/time {loop_num}/{start}/{:.2?}",
+                "Trades[{}] saved to file: {} loop {} start {} time {:.2?}",
+                trades.len(),
+                file_path,
+                loop_num,
+                start,
                 time_trade.elapsed()
             );
         }
