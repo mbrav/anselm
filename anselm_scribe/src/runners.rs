@@ -1,128 +1,96 @@
 use crate::config::Config;
 use crate::db::ClickhouseDatabase;
-use crate::models::{Board, Trade};
-use std::collections::HashMap;
+use crate::models::{get_boards, get_engines, get_markets, Board, Engine, Market, Trade};
 use std::time::Instant;
 use tokio::fs::File;
 use tokio::io::AsyncWriteExt;
 
-/// Base runner for running on a single thread
+/// # Base runner for running on a single thread
 pub async fn base_runner(
     conf: &Config,
     db: &Option<ClickhouseDatabase>,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let boards = get_all_boards().await?;
-    for chunk in boards.chunks(conf.chunks) {
-        // Save board market data
+    let engines = get_engines().await?;
+    for chunk in engines.chunks(conf.chunks) {
+        // Save Engines to db if defined
         if let Some(db) = db {
-            db.insert_boards(chunk).await?;
-            println!("Inserted {} Boards, engine/market", boards.len());
-            // Insert board into the database
-        } else {
-            println!("Not inserting Boards into db");
+            db.insert_engines(chunk).await?;
+            println!("Inserted {} Engines into db", engines.len());
         }
-        for board in &boards {
-            run_board(conf, db, board).await?;
+
+        // FIX: Implement trades format parsing for all types of Engines, Markets and Boards
+        let filtered: Vec<&Engine> = engines.iter().filter(|p| p.name == "stock").collect();
+
+        // Loop through all Engines and run them
+        for engine in filtered {
+            run_engine(conf, db, engine).await?;
         }
     }
-
-    //let securities = get_all_securities(db).await?;
-    //
-    //'outer: for sec in securities {
-    //    let mut empty_day = 0;
-    //    'inner: for n in 0..conf.md_days {
-    //        // Calculate date start based on reverse parameter
-    //        let date_start = if conf.md_reverse {
-    //            // If reverse, subtract current day making date start less in reverse direction
-    //            (date - Duration::days(n + 1)).to_string()
-    //        } else {
-    //            // Otherwise, make date start less than date end
-    //            (date + Duration::days(n)).to_string()
-    //        };
-    //        // Calculate date end based on reverse parameter
-    //        let date_end = if conf.md_reverse {
-    //            (date - Duration::days(n)).to_string()
-    //        } else {
-    //            (date + Duration::days(n + 1)).to_string()
-    //        };
-    //
-    //        // Fetch candles
-    //        let candles = sec
-    //            .fetch_candles(conf.md_interval, &date_start, &date_end)
-    //            .await?;
-    //
-    //        // Check if candles where empty for curent day
-    //        if candles.is_empty() {
-    //            empty_day += 1;
-    //            // If empty day count surpassed threshold then continue onto next security
-    //            if empty_day > conf.md_day_threshold {
-    //                continue 'outer;
-    //            }
-    //            // Otherwise don't save candles and continue onto next day
-    //            continue 'inner;
-    //        }
-    //
-    //        // Save market data
-    //        if let Some(db) = db {
-    //            // Save candles array to db
-    //            for candle in &candles {
-    //                db.insert_candle(candle).await?;
-    //            }
-    //            //db.insert_candle_batch(&candles).await?;
-    //            println!(
-    //                "Inserted {} candles for security {} in db",
-    //                candles.len(),
-    //                sec.secid
-    //            );
-    //        } else {
-    //            // Otherwise Save market data as JSON to disk
-    //            let file_path = format!("{}/{}-{}.json", &conf.md_path, &sec.secid, &date_start);
-    //            save_candles_to_file(&file_path, &candles).await?;
-    //            println!(
-    //                "saved {} candles for security {} to {}",
-    //                candles.len(),
-    //                sec.secid,
-    //                file_path
-    //            );
-    //        }
-    //    }
-    //}
 
     Ok(())
 }
 
-async fn get_all_boards() -> Result<Vec<Board>, Box<dyn std::error::Error>> {
-    let engine = "stock"; // TODO Actualize variance
-    let market = "shares"; // TODO Actualize variance
-    let url = format!("https://iss.moex.com/iss/engines/{engine}/markets/{market}/boards.json");
+/// # Run Engine
+async fn run_engine(
+    conf: &Config,
+    db: &Option<ClickhouseDatabase>,
+    engine: &Engine,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let markets = get_markets(&engine.name).await?;
+    for chunk in markets.chunks(conf.chunks) {
+        // Save Markets to db if defined
+        if let Some(db) = db {
+            db.insert_markets(chunk).await?;
+            println!("Inserted {} Markets into db", markets.len());
+        }
 
-    let resp = reqwest::get(url)
-        .await?
-        .json::<HashMap<String, serde_json::Value>>()
-        .await?;
+        // FIX: Implement trades format parsing for all types of Engines, Markets and Boards
+        let filtered: Vec<&Market> = markets
+            .iter()
+            .filter(|p| p.engine == "stock" && p.name == "shares")
+            .collect();
 
-    let resp_iter = resp["boards"]["data"]
-        .as_array()
-        .expect("Error parsing securities data")
-        .iter();
+        // Loop through all Markets and run them
+        for market in filtered {
+            run_market(conf, db, market).await?;
+        }
+    }
 
-    let records: Vec<Board> = resp_iter
-        .map(|x| Board {
-            engine: engine.to_string(),                    // TODO Actualize variance
-            market: market.to_string(),                    // TODO Actualize variance
-            id: x[0].as_i64().unwrap() as i16, // Convert the value to i64 first, then cast to i16
-            board_group_id: x[1].as_i64().unwrap() as i16, // Convert the value to i64 first, then cast to i16
-            boardid: x[2].as_str().unwrap().into(), // Convert the value to i64 first, then cast to i16
-            title: x[3].as_str().unwrap().into(),
-            is_traded: x[4].as_i64().unwrap() != 0, // Convert 0 or 1 to a bool
-        })
-        .collect();
-    println!("Got {} Boards", records.len());
-
-    Ok(records)
+    Ok(())
 }
 
-/// # Run board
+/// # Run Market
+async fn run_market(
+    conf: &Config,
+    db: &Option<ClickhouseDatabase>,
+    market: &Market,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let boards = get_boards(&market.engine, &market.name).await?;
+    for chunk in boards.chunks(conf.chunks) {
+        // Save Board market data
+        if let Some(db) = db {
+            db.insert_boards(chunk).await?;
+            println!("Inserted {} Boards, engine/market", boards.len());
+        }
+
+        // FIX: Implement trades format parsing for all types of Engines, Markets and Boards
+        let filtered: Vec<&Board> = boards
+            .iter()
+            // Note: is_traded is necessary
+            .filter(|p| {
+                p.is_traded && p.engine == "stock" && p.market == "shares" && p.boardid == "TQBR"
+            })
+            .collect();
+
+        // Loop through all Boards and run them
+        for board in filtered {
+            run_board(conf, db, board).await?;
+        }
+    }
+    Ok(())
+}
+
+/// # Run Board
 async fn run_board(
     conf: &Config,
     db: &Option<ClickhouseDatabase>,
