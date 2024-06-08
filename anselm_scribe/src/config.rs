@@ -44,4 +44,12 @@ pub struct Config {
     /// Specify chunksize of market data to save into db
     #[arg(short, long, env = "MD_THREADS", default_value_t = 1000)]
     pub chunks: usize,
+
+    /// Specify whether to disable metrics
+    #[arg(long, env = "METRICS_NO", action=ArgAction::SetTrue)]
+    pub metrics_disable: bool,
+
+    /// Specify list port for metrics
+    #[arg(long, env = "METRICS_PORT", default_value_t = 8080)]
+    pub metrics_port: u16,
 }
