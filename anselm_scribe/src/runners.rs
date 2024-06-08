@@ -12,10 +12,18 @@ pub async fn base_runner(
     db: &Option<ClickhouseDatabase>,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let boards = get_all_boards().await?;
-
-    // Save board market data
-    for board in &boards {
-        run_board(conf, db, board).await?;
+    for chunk in boards.chunks(conf.chunks) {
+        // Save board market data
+        if let Some(db) = db {
+            db.insert_boards(chunk).await?;
+            println!("Inserted {} Boards, engine/market", boards.len());
+            // Insert board into the database
+        } else {
+            println!("Not inserting Boards into db");
+        }
+        for board in &boards {
+            run_board(conf, db, board).await?;
+        }
     }
 
     //let securities = get_all_securities(db).await?;
@@ -114,24 +122,12 @@ async fn get_all_boards() -> Result<Vec<Board>, Box<dyn std::error::Error>> {
     Ok(records)
 }
 
-/// Insert trades
+/// # Run board
 async fn run_board(
     conf: &Config,
     db: &Option<ClickhouseDatabase>,
     board: &Board,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    if let Some(db) = db {
-        // Insert board into db
-        db.insert_board(board).await?;
-        println!(
-            "Inserted board {}, engine: {} market: {}",
-            board.boardid, board.engine, board.market
-        );
-        // Insert board into the database
-    } else {
-        println!("Not inserting board into db");
-    }
-
     // Insert trades for each board
     let mut start: i32 = 0;
     let mut loop_num: i32 = 1;
@@ -152,17 +148,18 @@ async fn run_board(
         let time_trade: Instant = Instant::now();
         if let Some(db) = db {
             // Insert trades into the database
-            let mut chunk_count = 1;
+            let mut chunk_count = 0;
             for chunk in trades.chunks(conf.chunks) {
                 db.insert_trades(chunk).await?;
                 chunk_count += 1;
+                println!(
+                    "{} Trades saved to db, chunk/chunk_size/time {}/{}/{:.2?}",
+                    chunk.len(),
+                    chunk_count,
+                    conf.chunks,
+                    time_trade.elapsed()
+                );
             }
-            println!(
-                "{} Trades saved to db, chunk/chunk_size/time {chunk_count}/{}/{:.2?}",
-                conf.chunks,
-                trades.len(),
-                time_trade.elapsed()
-            );
         } else {
             println!("Not inserting trades into db");
             // Otherwise Save market data as JSON to disk
@@ -176,9 +173,6 @@ async fn run_board(
                 time_trade.elapsed()
             );
         }
-
-        // Batch insert trades into DB
-        // db.insert_trades(&trades).await?;
 
         start += trades.len() as i32;
         loop_num += 1;

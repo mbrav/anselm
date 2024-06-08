@@ -3,6 +3,45 @@ use serde::Serialize;
 use std::collections::HashMap;
 use std::time::Instant;
 use time::{format_description::well_known::Iso8601, OffsetDateTime, PrimitiveDateTime, UtcOffset};
+//
+// /// Data Struct for holding Engine data
+// #[derive(Debug, Clone, Serialize, Row)]
+// pub struct Engine {
+//     // Identifiers
+//     pub engine: String,
+//     pub market: String,
+//     pub id: i16,
+//     pub board_group_id: i16,
+//     pub boardid: String,
+//     pub title: String,
+//     pub is_traded: bool,
+// }
+//
+// /// Data Struct for holding Market data
+// #[derive(Debug, Clone, Serialize, Row)]
+// pub struct Market {
+//     // Identifiers
+//     pub engine: String,
+//     pub market: String,
+//     pub id: i16,
+//     pub board_group_id: i16,
+//     pub boardid: String,
+//     pub title: String,
+//     pub is_traded: bool,
+// }
+//
+/// Data Struct for holding Board data
+#[derive(Debug, Clone, Serialize, Row)]
+pub struct Board {
+    // Identifiers
+    pub engine: String,
+    pub market: String,
+    pub id: i16,
+    pub board_group_id: i16,
+    pub boardid: String,
+    pub title: String,
+    pub is_traded: bool,
+}
 
 /// Trade Record
 #[derive(Debug, Clone, Serialize, Row)]
@@ -22,19 +61,6 @@ pub struct Trade {
     pub tradetime: OffsetDateTime,
     #[serde(with = "clickhouse::serde::time::datetime")]
     pub systime: OffsetDateTime,
-}
-
-/// Data Struct for holding Board data
-#[derive(Debug, Clone, Serialize, Row)]
-pub struct Board {
-    // Identifiers
-    pub engine: String,
-    pub market: String,
-    pub id: i16,
-    pub board_group_id: i16,
-    pub boardid: String,
-    pub title: String,
-    pub is_traded: bool,
 }
 
 /// Implementation for Board data struct
@@ -82,24 +108,23 @@ impl Board {
         // Parse iterator
         let records: Vec<Trade> = resp_iter
             .map(|x| {
+                // Replace space with to make it ISO8601 compliant
+                let iso_date = x[9].as_str().unwrap().replace(' ', "T");
                 // Parse date by converting first to primitive date
                 // Then to timezone aware datetime
-                let prim_time =
-                    PrimitiveDateTime::parse(&x[9].to_string(), &Iso8601::DEFAULT).unwrap();
-                let trade_time = prim_time.assume_offset(moscow_offset);
-                println!("{}", trade_time);
+                let trade_time = PrimitiveDateTime::parse(&iso_date, &Iso8601::DEFAULT).unwrap();
                 Trade {
                     engine: engine.clone(),
                     market: market.clone(),
                     tradeid: x[0].as_i64().unwrap(),
                     // TODO: Make Date + Time merge
-                    tradetime: trade_time,
+                    tradetime: trade_time.assume_offset(moscow_offset),
                     boardid: x[2].to_string(),
                     secid: x[3].to_string(),
                     price: x[4].as_f64().unwrap(),
                     quantity: x[5].as_i64().unwrap() as i16,
                     value: x[6].as_f64().unwrap(),
-                    systime: trade_time,
+                    systime: trade_time.assume_offset(moscow_offset),
                     buysell: x[10].as_str().unwrap().into(),
                 }
             })

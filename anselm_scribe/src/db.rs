@@ -2,15 +2,15 @@ use crate::config::Config;
 use crate::models::{Board, Trade};
 use clickhouse::{error::Result, sql, Client};
 
-/// Clickhouse Clickhouse Database struct
+/// # Clickhouse Clickhouse Database struct
 pub struct ClickhouseDatabase {
     client: Client,
     db: String,
 }
 
-/// Implementation for ClickhouseDatabase Struct
+/// # Implementation for ClickhouseDatabase Struct
 impl ClickhouseDatabase {
-    /// ClichouseDatabase instance factory
+    /// # ClichouseDatabase instance factory
     pub fn new(conf: &Config) -> Self {
         let client = Client::default()
             .with_url(&conf.ch_url)
@@ -23,12 +23,12 @@ impl ClickhouseDatabase {
         }
     }
 
-    /// Init database with required tables
+    /// # Init database with required tables
     ///
-    /// # Steps
+    /// ## Steps
     /// - Create defined database if it does not exist
-    /// - Create table for securities
-    /// - Create table for candles
+    /// - Create table for boards
+    /// - Create table for trades
     pub async fn init(&self) -> Result<()> {
         self.client
             .query("CREATE DATABASE IF NOT EXISTS ?")
@@ -43,10 +43,9 @@ impl ClickhouseDatabase {
         Ok(())
     }
 
-    /// Init board table
+    /// # Initialize Boards Record table
     pub async fn init_board(&self) -> Result<()> {
         self.client
-            // TODO boolen
             .query(
                 "
                 CREATE TABLE IF NOT EXISTS ?.boards(
@@ -72,7 +71,7 @@ impl ClickhouseDatabase {
     /// # Initialize Trade Record table
     pub async fn init_trades(&self) -> Result<()> {
         self.client
-            // TODO enum
+            // TODO: enum
             //  buysell    Enum8('B' = 1, 'S' = 2) Codec(ZSTD(1)),
             .query(
                 "
@@ -100,47 +99,17 @@ impl ClickhouseDatabase {
         Ok(())
     }
 
-    /// Insert new board record in database
-    pub async fn insert_board(&self, board: &Board) -> Result<()> {
-        self.client
-            .query("INSERT INTO ?.boards (*) VALUES (?,?,?,?,?,?,?)")
-            .bind(sql::Identifier(self.db.as_str()))
-            .bind(board.engine.as_str())
-            .bind(board.market.as_str())
-            .bind(board.id)
-            .bind(board.board_group_id)
-            .bind(board.boardid.as_str())
-            .bind(board.title.as_str())
-            .bind(board.is_traded)
-            .execute()
-            .await?;
+    /// # Insert a batch of Board Records into database
+    pub async fn insert_boards(&self, boards: &[Board]) -> Result<()> {
+        let mut insert = self.client.insert(format!("{}.boards", self.db).as_str())?;
+        for board in boards {
+            insert.write(board).await?;
+        }
+        insert.end().await.unwrap();
         Ok(())
     }
 
-    /// Insert new trade record in database
-    pub async fn insert_trade(&self, trade: &Trade) -> Result<()> {
-        self.client
-            .query(
-                "INSERT INTO ?.trades (*) VALUES (?,?,?,?,?,?,?,?,?,toDateTime(?),toDateTime(?))",
-            )
-            .bind(sql::Identifier(self.db.as_str()))
-            .bind(trade.secid.as_str())
-            .bind(trade.market.as_str())
-            .bind(trade.secid.as_str())
-            .bind(trade.boardid.as_str())
-            .bind(trade.tradeid)
-            .bind(trade.buysell.as_str())
-            .bind(trade.quantity)
-            .bind(trade.price)
-            .bind(trade.value)
-            .bind(trade.tradetime.to_string())
-            .bind(trade.systime.to_string())
-            .execute()
-            .await?;
-
-        Ok(())
-    }
-    /// Insert a batch of trades into database
+    /// # Insert a batch of Trade Records into database
     pub async fn insert_trades(&self, trades: &[Trade]) -> Result<()> {
         let mut insert = self.client.insert(format!("{}.trades", self.db).as_str())?;
         for trade in trades {
