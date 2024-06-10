@@ -154,7 +154,7 @@ impl Board {
         };
 
         println!(
-            "Trades[{}]: Board '{}' for Market '{}' for Engine '{}' from {} until {} start {} response {:?} parse {:?}",
+            "Trades[{}]: Board '{}' for Market '{}' for Engine '{}' from {} until {} start {} response {:.2?} parse {:.2?}",
             records.len(),
             self.boardid,
             market,
